@@ -7,8 +7,7 @@ from pyspace_test import PySPACETestCase
 class PySPACEHyperoptTestCase(PySPACETestCase):
 
     def test_optimization(self):
-        data_set_dir = os.path.join(self.configuration.examples_storage, "example_summary", "Titanic")
-        optimizer = PySPACEHyperopt(data_set_dir,
+        optimizer = PySPACEHyperopt("example_summary",
                                     max_pipeline_length=2,
                                     metric="",
                                     backend="mcore",

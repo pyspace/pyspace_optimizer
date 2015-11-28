@@ -2,14 +2,8 @@
 # -*- coding: utf-8 -*-
 import os
 import uuid
-
 import pySPACE
-try:
-    from yaml import CLoader as Loader, CDumper as Dumper
-except ImportError:
-    from yaml import Loader, Dumper
-
-from resources.dataset_defs.performance_result import PerformanceResultSummary
+from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from hyperopt import hp, fmin, STATUS_OK, tpe
 from pipeline_generator import PipelineGenerator
 from pipeline import PipelineNode, Pipeline
@@ -18,26 +12,29 @@ from pyspace_base_optimizer import PySPACEOptimizer
 
 class HyperoptPipelineNode(PipelineNode):
 
-    def __init__(self, node_name):
+    def __init__(self, node_name, uuid_=None):
+        if uuid_ is None:
+            uuid_ = uuid.uuid4()
+        self.__uuid = uuid_
         super(HyperoptPipelineNode, self).__init__(node_name)
 
     def make_parameter_name(self, parameter):
         return "__{uuid}_{node_name}_{parameter}__".format(
-            uuid=uuid.uuid4().hex,
+            uuid=self.__uuid.get_hex(),
             node_name=self.name,
             parameter=parameter
         )
 
     @property
     def parameter_space(self):
-        space = []
+        space = {}
         for key, value in super(HyperoptPipelineNode, self).parameter_space.iteritems():
             if isinstance(value, (int, float)):
                 # Default: Create a normal distribution around the default value with sigma=1
-                space.append(hp.lognormal(key, value, 1))
+                space[key] = hp.lognormal(key, value, 1)
             else:
                 # Create a choice with only one value
-                space.append(hp.choice(key, [value]))
+                space[key] = hp.choice(key, [value])
         return space
 
 
@@ -78,12 +75,14 @@ class PySPACEHyperopt(PySPACEOptimizer):
         return best_params
 
     def __minimize(self, spec):
+        # First get the pipeline to execute
         pipeline_number = spec[0]
         pipeline = self.__pipelines[pipeline_number]
-        del spec["pipeline"]
-        for key, value in spec.iteritems():
+        # Set all the parameters to be used
+        for key, value in spec[1].iteritems():
             pipeline.set_parameter(key, value)
-        result_path = pySPACE.run_operation(self.__backend, pipeline)
+        operation = pySPACE.create_operation(pipeline)
+        result_path = pySPACE.run_operation(self.__backend, operation)
         summary = PerformanceResultSummary.from_csv(os.path.join(result_path, "results.csv"))
         return {
             "loss": -1 * summary[self.metric],
