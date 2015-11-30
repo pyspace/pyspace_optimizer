@@ -1,15 +1,15 @@
-import unittest
+from configuration import Configuration
+from optimizer.pyspace_base_optimizer import PySPACEOptimizer
 from pipeline_generator import PipelineGenerator
 from pyspace_test import PySPACETestCase
+
 
 class PipelineGeneratorTests(PySPACETestCase):
 
     def test_generate_pipelines(self):
-        max_length = 3
-        generator = PipelineGenerator("FeatureVector", max_length)
+        experiment = Configuration(data_set_path="example_summary",
+                                   max_processing_length=1,
+                                   optimizer=PySPACEOptimizer)
+        generator = PipelineGenerator(experiment)
         for pipeline in generator:
-            self.assertLessEqual(len(pipeline), max_length)
-
-
-if __name__ == '__main__':
-    unittest.main()
+            self.assertLessEqual(len(pipeline), experiment.max_processing_length + 3)
