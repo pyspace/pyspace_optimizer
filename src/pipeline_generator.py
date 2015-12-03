@@ -5,7 +5,7 @@ from configuration import Configuration, is_source_node, is_splitter_node
 
 class PipelineGenerator(object):
 
-    def __init__(self, configuration):
+    def __init__(self, configuration, pipeline_class):
         """
         Creates a new pipeline generator.
         This generator will create all pipelines that are able to process
@@ -16,19 +16,21 @@ class PipelineGenerator(object):
 
         :param configuration: The configuration for this experiment to use for pipeline generation.
         :type configuration: Configuration
+        :param pipeline_class: The class to use for pipeline creation it has to be a subclass of Pipeline
+        :type pipeline_class: Pipeline
         :return: A new pipeline generator generating all pipelines able to process the given data set type.
         :rtype: PipelineGenerator
         """
         self._input_type = configuration.data_set_type
         # We always need to have a emitter, a splitter and a sink, therefore there must be at least 3 nodes
         # But we don't count the sink node, therefor only add 2
-        self._max_length = configuration.max_processing_length + 2
+        self._max_length = configuration.max_pipeline_length - 1
         self._source_node = configuration.source_node
-        self._splitter_node = configuration.splitter_node
         self._sink_node = configuration.sink_node
-        self._sink_node_inputs = configuration.nodes[configuration.sink_node].get_input_types()
+        self._sink_node_inputs = configuration.nodes[self._sink_node.name].get_input_types()
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._configuration = configuration
+        self._pipeline_class = pipeline_class
 
     def _get_output_type(self, node_name, input_type):
         return self._configuration.nodes[node_name].get_output_type(input_type)
@@ -44,16 +46,6 @@ class PipelineGenerator(object):
                 # Use the given node
                 pipeline.append(self._source_node)
                 input_type = self._get_output_type(self._source_node, input_type)
-        # Second node always has to be a "SplitterNode" splitting the data set in training and test data
-        second_node = False
-        if len(pipeline) == 1:
-            if self._splitter_node is None:
-                # Automatically select a node
-                second_node = True
-            else:
-                # Use the given node
-                pipeline.append(self._splitter_node)
-                input_type = self._get_output_type(self._splitter_node, input_type)
 
         if len(pipeline) >= self._max_length or self._input_type not in self._nodes:
             # The pipeline get's to long or we got an input type we can't process.
@@ -61,8 +53,10 @@ class PipelineGenerator(object):
             raise StopIteration()
 
         for node in self._nodes[input_type]:
-            if node not in pipeline:
-                if (not first_node or is_source_node(node)) and (not second_node or is_splitter_node(node)):
+            # Append only if this is the first node and it's a source node or
+            # it's not a splitter node
+            if (first_node and is_source_node(node)) or (not first_node and not is_splitter_node(node)):
+                if node not in pipeline:
                     pipeline.append(node)
                     try:
                         node_output = self._get_output_type(node, input_type)
@@ -84,6 +78,7 @@ class PipelineGenerator(object):
 
     def __iter__(self):
         # Generate all pipelines
-        for pipeline in self._make_pipeline([], self._input_type):
+        for pipeline in self._make_pipeline(self._pipeline_class(self._configuration),
+                                            self._input_type):
             yield pipeline
         raise StopIteration()

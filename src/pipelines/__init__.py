@@ -26,6 +26,7 @@ class PipelineNode(object):
         """
         self.class_ = nodes.DEFAULT_NODE_MAPPING[node_name]
         self.name = node_name
+        self._values = {}
 
     @property
     def parameters(self):
@@ -52,10 +53,12 @@ class PipelineNode(object):
         :rtype: dict[str, object]
         """
         space = {}
+        parameters = self.parameters
         argspec = inspect.getargspec(self.class_.__init__)
         if argspec.defaults is not None:
             default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-            space = {self._make_parameter_name(param): default for param, default in default_args}
+            space = {self._make_parameter_name(param): default for param, default in default_args
+                     if param in parameters}
         return space
 
     def as_dictionary(self):
@@ -65,11 +68,16 @@ class PipelineNode(object):
         uniqueness.
 
         :return: The specification of the node as a dictionary for pySPACE.
-        :rtype: dict[str, str]
+        :rtype: dict[str, object]
         """
         result = {"node": self.name}
         if self.parameters:
             result["parameters"] = {param: self._make_parameter_name(param) for param in self.parameters}
+        if self._values:
+            if "parameters" not in result:
+                result["parameters"] = self._values
+            else:
+                result["parameters"].update(self._values)
         return result
 
     def _make_parameter_name(self, parameter):
@@ -87,6 +95,10 @@ class PipelineNode(object):
             parameter=parameter
         )
 
+    def set_value(self, parameter, value):
+        if parameter in self.parameters:
+            self._values[parameter] = value
+
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return other.name == self.name
@@ -96,37 +108,52 @@ class PipelineNode(object):
         return self.name
 
 
-class Pipeline(object):
+class SinkNode(PipelineNode):
 
-    def __init__(self, node_chain, data_set_path):
+    def __init__(self, node_name, main_class, class_property="ir_class"):
+        super(SinkNode, self).__init__(node_name)
+        self._main_class = main_class
+        self._property = class_property
+        self.set_value(self._property, self._main_class)
+
+    @property
+    def parameters(self):
+        return []
+
+
+class Pipeline(list):
+
+    def __init__(self, configuration, node_chain=None):
         """
         Creates a new node with the given `name` and `data_set_path`.
         The pipeline uses the given nodes for processing.
 
+        :param configuration: The configuration to use for this Pipeline
+        :type configuration: Configuration
         :param node_chain: A list of node names to create the pipeline with
-        :type node_chain: [PySPACEPipelineNode]
-        :param data_set_path: The path to the data set to use as input to the pipeline
-        :type data_set_path: str
+        :type node_chain: [PipelineNode]
 
         :return: A new PySPACEPipeline with the given name, nodes and data set path
         :rtype: Pipeline
         """
-        self.__space = None
-        self.__node_chain = node_chain
-        self.__input_path = data_set_path
-        self.__parameter_ranges = {}
+        super(Pipeline, self).__init__(node_chain if node_chain is not None else [])
+        self._input_path = configuration.data_set_path
+        self._parameter_ranges = {}
+        self._node_class = PipelineNode
 
     @property
     def pipeline_space(self):
         """
         Returns the parameter space of the pipeline.
         The parameter space is a dictionary of the parameters used in this pipeline and their ranges.
+        This method automatically excludes the first and the last node, as these are normally a source and a sink
+        node that should not be optimized at all.
 
         :return: The domain of the parameters for this pipeline
         :rtype: dict[str, str]
         """
         space = {}
-        for node in self.__node_chain:
+        for node in self[1:-1]:
             space.update(node.parameter_space)
         return space
 
@@ -140,7 +167,7 @@ class Pipeline(object):
         :rtype: list[str]
         """
         parameters = []
-        for node in self.__node_chain:
+        for node in self:
             for parameter in node.parameter_space.iterkeys():
                 parameters.append(parameter)
         return parameters
@@ -160,22 +187,7 @@ class Pipeline(object):
             raise AttributeError("Parameter '%s' not found in the pipeline" % parameter_name)
         if not isinstance(values, list):
             raise AttributeError("Only lists of values are supported as parameter ranges")
-        self.__parameter_ranges[parameter_name] = values
-
-    @classmethod
-    def from_node_list(cls, node_list, data_set_path):
-        """
-        Creates a new pipeline from the given list of nodes and the given data set path.
-
-        :param node_list: A list of node names to use for the pipeline creation.
-        :type node_list: list[str]
-        :param data_set_path: The path to the data sets to process. This must be a path to a summary.
-        :type data_set_path: str
-        :return: A new pipeline using the given nodes to process the data sets at the given location.
-        :rtype: Pipeline
-        """
-        node_chain = [PipelineNode(node_name) for node_name in node_list]
-        return Pipeline(node_chain, data_set_path)
+        self._parameter_ranges[parameter_name] = values
 
     @property
     def operation_spec(self):
@@ -185,12 +197,12 @@ class Pipeline(object):
         :return: The pipeline specification as a dictionary
         :rtype: dict[str, str]
         """
-        node_chain = [node.as_dictionary() for node in self.__node_chain]
+        node_chain = [node.as_dictionary() for node in self]
         operation_spec = {
             "type": "node_chain",
-            "input_path": self.__input_path,
+            "input_path": self._input_path,
             "node_chain": node_chain,
-            "parameter_ranges": self.__parameter_ranges
+            "parameter_ranges": self._parameter_ranges
         }
         # Due to bad pySPACE YAML-Parsing, we need to modify the output of the yaml dumper for correct format
         dump = yaml.dump(operation_spec, Dumper=Dumper, default_flow_style=False, indent=4)
@@ -215,3 +227,28 @@ class Pipeline(object):
         backend = pySPACE.create_backend(backend)
         operation = pySPACE.create_operation(self.operation_spec)
         return pySPACE.run_operation(backend, operation)
+
+    def append(self, node_name):
+        if isinstance(node_name, str):
+            node_name = self._node_class(node_name)
+        elif not isinstance(node_name, PipelineNode):
+            raise TypeError("Node '%s' is not of type %s" % (node_name, PipelineNode))
+        return super(Pipeline, self).append(node_name)
+
+    def remove(self, node_name):
+        if isinstance(node_name, str):
+            node_name = self._node_class(node_name)
+        if isinstance(node_name, PipelineNode):
+            return super(Pipeline, self).remove(node_name)
+
+    def __setitem__(self, index, node_name):
+        if isinstance(node_name, str):
+            node_name = self._node_class(node_name)
+        elif not isinstance(node_name, PipelineNode):
+            raise TypeError("Node '%s' is not of type %s" % (node_name, PipelineNode))
+        super(Pipeline, self).__setitem__(index, node_name)
+
+    def __contains__(self, node_name):
+        if isinstance(node_name, str):
+            node_name = self._node_class(node_name)
+        return super(Pipeline, self).__contains__(node_name)

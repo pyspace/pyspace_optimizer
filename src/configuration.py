@@ -9,6 +9,7 @@ import yaml
 
 import pySPACE
 from optimizer import get_optimizer
+from pipelines import SinkNode
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
 try:
@@ -39,16 +40,23 @@ def is_sink_node(node_name):
 class Configuration(dict):
 
     # TODO: Insert a suitable default metric
-    def __init__(self, data_set_path, optimizer, max_processing_length=1, metric="",
-                 source_node=None, splitter_node=None, sink_node="PerformanceSinkNode", whitelist=None,
-                 node_weights=None, **kwargs):
+    def __init__(self, data_set_path, optimizer, class_labels, main_class, max_pipeline_length=3, metric="",
+                 source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
+                 force_list=None, node_weights=None, **kwargs):
 
+        # First do some sanity checks
         if whitelist is None:
             whitelist = []
         else:
             for node in whitelist:
                 if not node in DEFAULT_NODE_MAPPING:
                     raise AttributeError("'%s' from white list is not a node" % node)
+
+        if blacklist is None:
+            blacklist = []
+
+        if force_list is None:
+            force_list = []
 
         if node_weights is None:
             node_weights = {}
@@ -59,15 +67,24 @@ class Configuration(dict):
                 elif not isinstance(weight, (int, float)) or weight < 0:
                     raise AttributeError("Weight of Node '%s' from weight dict is not a positive number" % node)
 
+        if not isinstance(class_labels, list):
+           raise AttributeError("Class labels must be a list of names")
+
+        if main_class not in class_labels:
+            raise AttributeError("The main class is not defined as a class label")
+
         super(Configuration, self).__init__({
             "data_set_path": data_set_path,
-            "max_processing_length": max_processing_length,
+            "max_pipeline_length": max_pipeline_length,
             "source_node": source_node,
-            "splitter_node": splitter_node,
-            "sink_node": sink_node,
+            "sink_node": SinkNode(sink_node, main_class),
             "optimizer": optimizer,
+            "class_labels": class_labels,
+            "main_class": main_class,
             "metric": metric,
             "whitelist": whitelist,
+            "blacklist": blacklist,
+            "force_list": force_list,
             "node_weights": node_weights,
         })
         nodes_by_input_type = {}
@@ -85,15 +102,9 @@ class Configuration(dict):
                 self.data_set_type not in DEFAULT_NODE_MAPPING[source_node].get_input_types()):
             raise AttributeError("'%s' is either not a source node or is not able to emit data type '%s'" % (
                 source_node, self.data_set_type))
-        # Check the splitter node
-        if splitter_node is not None and (
-                not is_splitter_node(splitter_node) or
-                self.data_set_type not in DEFAULT_NODE_MAPPING[splitter_node].get_input_types()):
-            raise AttributeError("'%s' is either not a splitter node or is not able to split data type '%s'" % (
-                splitter_node, self.data_set_type))
-        # And check the sink node
+        # and the sink node
         if not is_sink_node(sink_node):
-            raise AttributeError("'%s' is not a sink node" % sink_node)
+            raise AttributeError("The node '%s' is not a sink node" % sink_node)
 
     def __getattr__(self, item):
         if item in self:
@@ -118,9 +129,19 @@ class Configuration(dict):
     def nodes(self):
         if self.whitelist:
             # Whitelist of nodes given, use only these nodes
-            return {node: DEFAULT_NODE_MAPPING[node] for node in self.whitelist}
+            nodes = {node: DEFAULT_NODE_MAPPING[node] for node in self.whitelist if not is_splitter_node(node)}
+            # Append the sink node
+            if self.sink_node not in nodes:
+                nodes[self.sink_node.name] = DEFAULT_NODE_MAPPING[self.sink_node.name]
+            # Append a possible source node or if none, append all source nodes
+            if self.source_node is not None and self.source_node not in nodes:
+                nodes[self.source_node] = DEFAULT_NODE_MAPPING[self.source_node]
+            elif self.source_node is None:
+                # Append only non splitter nodes
+                nodes.update({node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)})
+            return nodes
         else:
-            return DEFAULT_NODE_MAPPING
+            return {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if not is_splitter_node(node)}
 
     @property
     def nodes_by_input_type(self):
