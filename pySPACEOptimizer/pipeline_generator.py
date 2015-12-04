@@ -1,11 +1,11 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-from configuration import Configuration, is_source_node, is_splitter_node
+from pySPACEOptimizer.configuration import Configuration, is_source_node, is_splitter_node
 
 
 class PipelineGenerator(object):
 
-    def __init__(self, configuration, pipeline_class):
+    def __init__(self, configuration):
         """
         Creates a new pipeline generator.
         This generator will create all pipelines that are able to process
@@ -27,13 +27,15 @@ class PipelineGenerator(object):
         self._max_length = configuration.max_pipeline_length - 1
         self._source_node = configuration.source_node
         self._sink_node = configuration.sink_node
-        self._sink_node_inputs = configuration.nodes[self._sink_node.name].get_input_types()
+        self._sink_node_inputs = configuration.nodes[self._sink_node].get_input_types()
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._configuration = configuration
-        self._pipeline_class = pipeline_class
 
     def _get_output_type(self, node_name, input_type):
-        return self._configuration.nodes[node_name].get_output_type(input_type)
+        try:
+            return self._configuration.nodes[node_name].get_output_type(input_type)
+        except TypeError:
+            return None
 
     def _make_pipeline(self, pipeline, input_type):
         # First node has to be a "SourceNode", emitting the correct data type
@@ -78,7 +80,6 @@ class PipelineGenerator(object):
 
     def __iter__(self):
         # Generate all pipelines
-        for pipeline in self._make_pipeline(self._pipeline_class(self._configuration),
-                                            self._input_type):
+        for pipeline in self._make_pipeline([], self._input_type):
             yield pipeline
         raise StopIteration()

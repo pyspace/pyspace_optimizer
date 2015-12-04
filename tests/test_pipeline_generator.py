@@ -1,15 +1,17 @@
-from configuration import Configuration
-from optimizer.pyspace_base_optimizer import PySPACEOptimizer
-from pipeline_generator import PipelineGenerator
+from pySPACEOptimizer.configuration import Configuration
+from pySPACEOptimizer.pipeline_generator import PipelineGenerator
+from pySPACEOptimizer.pipelines import Pipeline
 from pyspace_test import PySPACETestCase
 
 
 class PipelineGeneratorTests(PySPACETestCase):
 
     def test_generate_pipelines(self):
-        experiment = Configuration(data_set_path="example_summary",
-                                   max_processing_length=1,
-                                   optimizer=PySPACEOptimizer)
+        experiment = Configuration(input_path="example_summary_split",
+                           optimizer="PySPACEOptimizer",
+                           class_labels=["Standard","Target"],
+                           main_class="Target",
+                           max_pipeline_length=3)
         generator = PipelineGenerator(experiment)
         for pipeline in generator:
-            self.assertLessEqual(len(pipeline), experiment.max_processing_length + 3)
+            self.assertLessEqual(len(pipeline), experiment.max_pipeline_length)

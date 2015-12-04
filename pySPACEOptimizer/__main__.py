@@ -1,7 +1,8 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 from argparse import ArgumentParser
-from configuration import Configuration
+from pySPACEOptimizer.configuration import Configuration
+from pySPACEOptimizer.optimizer import get_optimizer
 
 
 def create_parser():
@@ -15,8 +16,9 @@ def create_parser():
 def main(args):
     parser = create_parser()
     arguments = parser.parse_args(args)
-    experiment = Configuration.from_yaml(arguments.experiment)
-    optimizer = experiment.optimizer(experiment, arguments.backend)
+    with open(arguments.experiment, "rb") as file_:
+        experiment = Configuration.from_yaml(file_)
+    optimizer = get_optimizer(experiment.optimizer)(experiment, arguments.backend)
     return optimizer.optimize()
 
 

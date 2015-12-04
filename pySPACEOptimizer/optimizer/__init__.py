@@ -1,7 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+from pyspace_base_optimizer import PySPACEOptimizer
 from . import *
-from pyspace_base_optimizer import  PySPACEOptimizer
 
 __optimizer = {}
 
@@ -17,8 +17,9 @@ def register_optimizer(name, class_):
         raise AttributeError("Duplicate name '%s' for optimizers" % name)
 
 
-def get_optimizer(name):
-    return __optimizer[name]
+def optimizer_factory(configuration, backend="serial"):
+    #TODO: Import all submodules to enable the dynamic declaration
+    return __optimizer[configuration.optimizer](configuration, backend)
 
 
 def optimizer(name):
