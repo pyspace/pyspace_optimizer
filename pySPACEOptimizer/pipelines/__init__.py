@@ -1,7 +1,5 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-#!/bin/env python
-# -*- coding: utf-8 -*-
 import copy
 
 import yaml
@@ -34,7 +32,7 @@ class Pipeline(object):
             self._nodes = copy.deepcopy(node_chain)
         else:
             self._nodes = []
-        self._input_path = configuration.data_set_path
+        self._input_path = configuration["data_set_path"]
         self._configuration = configuration
 
     @property
@@ -88,7 +86,7 @@ class Pipeline(object):
         Executes the pipeline using the given backend.
 
         :param parameter_ranges: The ranges to let pySPACE select the values for the parameters for.
-        :type parameter: dict[str, list[object]]
+        :type parameter_ranges: dict[str, list[object]]
         :param backend: The backend to use for execution. (Default: serial)
         :type backend: unicode
         :return: The path to the results of the pipeline

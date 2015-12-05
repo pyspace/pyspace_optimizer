@@ -34,9 +34,8 @@ def is_sink_node(node_name):
 
 class Configuration(dict):
 
-    # TODO: Insert a suitable default metric
     def __init__(self, input_path, optimizer, class_labels, main_class, max_pipeline_length=3, max_eval_time=60,
-                 metric="", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
+                 metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
                  force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
 
         # First do some sanity checks
@@ -96,21 +95,8 @@ class Configuration(dict):
                 nodes_by_input_type[input_type].append(node_name)
         super(Configuration, self).__setitem__("nodes_by_input_type", nodes_by_input_type)
 
-    def __getattr__(self, item):
-        if item in self:
-            return self[item]
-        else:
-            raise AttributeError("'%s' does not have an attribute '%s'" % (self, item))
-
-    def __setattr__(self, key, value):
-        if key in self:
-            self[key] = value
-
-    def __setitem__(self, key, value):
-        raise RuntimeError("The experiment can't be changed")
-
     def __str__(self):
-        return "Configuration<%s>" % self.data_set_path
+        return "Configuration<%s>" % self["data_set_path"]
 
     @staticmethod
     def __valid_node(node_name):
@@ -118,16 +104,16 @@ class Configuration(dict):
 
     @property
     def nodes(self):
-        if self.whitelist:
+        if self["whitelist"]:
             # Whitelist of nodes given, use only these nodes
-            nodes = {node: DEFAULT_NODE_MAPPING[node] for node in self.whitelist if self.__valid_node(node)}
+            nodes = {node: DEFAULT_NODE_MAPPING[node] for node in self["whitelist"] if self.__valid_node(node)}
             # Append the sink node
-            if self.sink_node not in nodes:
-                nodes[self.sink_node] = DEFAULT_NODE_MAPPING[self.sink_node]
+            if self["sink_node"] not in nodes:
+                nodes[self["sink_node"]] = DEFAULT_NODE_MAPPING[self["sink_node"]]
             # Append a possible source node or if none, append all source nodes
-            if self.source_node is not None and self.source_node not in nodes:
-                nodes[self.source_node] = DEFAULT_NODE_MAPPING[self.source_node]
-            elif self.source_node is None:
+            if self["source_node"] is not None and self["source_node"] not in nodes:
+                nodes[self["source_node"]] = DEFAULT_NODE_MAPPING[self["source_node"]]
+            elif self["source_node"] is None:
                 # Append only non splitter nodes
                 nodes.update({
                     node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)
@@ -144,16 +130,16 @@ class Configuration(dict):
         :return: A dictionary sorted by the type of input the nodes can process.
         :rtype: Dict
         """
-        return self.__nodes_by_input_type
+        return self["nodes_by_input_type"]
 
     @property
     def data_set_type(self):
         # Determinate the type of the data set
-        if not os.path.isabs(self.data_set_path):
+        if not os.path.isabs(self["data_set_path"]):
             # we need to have an absolut path here, assume it's relative to the storage loation
-            data_set_dir = os.path.join(pySPACE.configuration.storage, self.data_set_path)
+            data_set_dir = os.path.join(pySPACE.configuration.storage, self["data_set_path"])
         else:
-            data_set_dir = self.data_set_path
+            data_set_dir = self["data_set_path"]
         data_set_dir = os.path.join(data_set_dir, "*", "")
         old_data_set_type = None
         for file_ in glob.glob(data_set_dir):
@@ -173,8 +159,8 @@ class Configuration(dict):
         return weighted_nodes
 
     def node_weight(self, node):
-        if node in self.node_weights.keys():
-            return self.node_weights[node]
+        if node in self["node_weights"].keys():
+            return self["node_weights"][node]
         else:
             # Use the default node weight
             try:
@@ -186,13 +172,13 @@ class Configuration(dict):
                 return 0
 
     def default_parameters(self, node_name):
-        definitions = [parameter_range for parameter_range in self.parameter_ranges
+        definitions = [parameter_range for parameter_range in self["parameter_ranges"]
                        if parameter_range["node"] == node_name]
         if definitions:
             result = definitions[0]["parameters"]
         else:
             result = {}
-        result["class_labels"] = self.class_labels
+        result["class_labels"] = [self["class_labels"]]
         return result
 
     @classmethod

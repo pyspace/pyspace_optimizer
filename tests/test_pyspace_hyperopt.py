@@ -12,8 +12,8 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                                    class_labels=["Standard","Target"],
                                    main_class="Target",
                                    max_pipeline_length=4,
-                                   max_evaluations=10,
-                                   max_eval_time=10,
+                                   max_evaluations=1,
+                                   max_eval_time=10,  # seconds
                                    source_node="FeatureVectorSourceNode",
                                    whitelist=[
                                        "SorSvmNode",
@@ -21,10 +21,10 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                                    parameter_ranges=[
                                        {"node": "SorSvmNode",
                                         "parameters": {
-                                            "kernel_type": "LINIEAR",
+#                                            "kernel_type": "LINEAR",
                                             "max_iterations": 10
                                         }}
                                    ])
-        optimizer = optimizer_factory(experiment, backend="serial")
+        optimizer = optimizer_factory(experiment, backend="mcore")
         best_params = optimizer.optimize()
         self.assertIsNotNone(best_params)

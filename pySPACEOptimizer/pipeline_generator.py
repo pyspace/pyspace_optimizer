@@ -24,9 +24,9 @@ class PipelineGenerator(object):
         self._input_type = configuration.data_set_type
         # We always need to have a emitter, a splitter and a sink, therefore there must be at least 3 nodes
         # But we don't count the sink node, therefor only add 2
-        self._max_length = configuration.max_pipeline_length - 1
-        self._source_node = configuration.source_node
-        self._sink_node = configuration.sink_node
+        self._max_length = configuration["max_pipeline_length"] - 1
+        self._source_node = configuration["source_node"]
+        self._sink_node = configuration["sink_node"]
         self._sink_node_inputs = configuration.nodes[self._sink_node].get_input_types()
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._configuration = configuration

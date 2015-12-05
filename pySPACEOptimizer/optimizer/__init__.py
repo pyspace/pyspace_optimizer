@@ -19,7 +19,7 @@ def register_optimizer(name, class_):
 
 def optimizer_factory(configuration, backend="serial"):
     #TODO: Import all submodules to enable the dynamic declaration
-    return __optimizer[configuration.optimizer](configuration, backend)
+    return __optimizer[configuration["optimizer"]](configuration, backend)
 
 
 def optimizer(name):

@@ -14,4 +14,4 @@ class PipelineGeneratorTests(PySPACETestCase):
                            max_pipeline_length=3)
         generator = PipelineGenerator(experiment)
         for pipeline in generator:
-            self.assertLessEqual(len(pipeline), experiment.max_pipeline_length)
+            self.assertLessEqual(len(pipeline), experiment["max_pipeline_length"])

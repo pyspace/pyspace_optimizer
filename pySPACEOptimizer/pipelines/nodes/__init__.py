@@ -17,9 +17,12 @@ class PipelineNode(object):
         self.class_ = nodes.DEFAULT_NODE_MAPPING[node_name]
         self.name = node_name
         self.__parameters = None
-        self._values = {self._make_parameter_name(param): [value]
-                        for param, value in configuration.default_parameters(node_name).iteritems()
-                        if param in self.parameters}
+        self._values = {}
+        for param, value in configuration.default_parameters(node_name).iteritems():
+            if isinstance(value, (list, dict)):
+                self._values[param] = value
+            else:
+                self._values[param] = [value]
 
     @property
     def parameters(self):
@@ -35,7 +38,12 @@ class PipelineNode(object):
             for class_ in inspect.getmro(self.class_):
                 if class_ != object and hasattr(class_, "__init__"):
                     argspec = inspect.getargspec(class_.__init__)
-                    self.__parameters.update([arg for arg in argspec.args if arg != "self"])
+                    if argspec.defaults is not None:
+                        default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
+                        self.__parameters.update([arg for arg, default in default_args
+                                                  if arg != "self" and isinstance(default, (bool, float, int))])
+            # Also add all keys, that have been set by the user
+            self.__parameters.update(self._values.keys())
         return self.__parameters
 
     @property
@@ -76,9 +84,10 @@ class PipelineNode(object):
                                     "sigma": 1,
                                     "q": 1,
                                 }
-                            else:
-                                space[param] = [default]
-        space.update(self._values)
+        # We can't optimize parameters with constants at all, therefore just leave them out.
+#                            else:
+#                                space[param] = [default]
+        space.update({self._make_parameter_name(param): value for param, value in self._values.items()})
         return space
 
     def as_dictionary(self):
@@ -110,10 +119,6 @@ class PipelineNode(object):
             parameter=parameter
         )
 
-    @staticmethod
-    def __get_parameter_name(parameter):
-        return parameter.split(".")[1].split("_")[:-2]
-
     def set_value(self, parameter, value):
         if parameter in self.parameters:
             # We need to make it a variable
@@ -134,8 +139,8 @@ class PipelineSinkNode(PipelineNode):
 
     def __init__(self, node_name, configuration):
         super(PipelineSinkNode, self).__init__(node_name, configuration=configuration)
-        self._main_class = configuration.main_class
-        self._class_labels = configuration.class_labels
+        self._main_class = configuration["main_class"]
+        self._class_labels = configuration["class_labels"]
         self._property = "ir_class"
 
     @property
