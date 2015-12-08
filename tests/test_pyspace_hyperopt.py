@@ -13,7 +13,7 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                                    main_class="Target",
                                    max_pipeline_length=4,
                                    max_evaluations=1,
-                                   max_eval_time=10,  # seconds
+                                   max_eval_time=0,  # seconds
                                    source_node="FeatureVectorSourceNode",
                                    whitelist=[
                                        "SorSvmNode",
