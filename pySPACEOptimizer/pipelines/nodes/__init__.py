@@ -101,7 +101,7 @@ class PipelineNode(object):
         """
         result = {"node": self.name}
         if self.parameters:
-            result["parameters"] = {param: self._make_parameter_name(param) for param in self.parameters}
+            result["parameters"] = {param: "${%s}" % self._make_parameter_name(param) for param in self.parameters}
         return result
 
     def _make_parameter_name(self, parameter):
@@ -114,7 +114,7 @@ class PipelineNode(object):
         :return: A unique name for the given parameter.
         :rtype: str
         """
-        return "__{node_name}.{parameter}__".format(
+        return "{node_name}_{parameter}".format(
             node_name=self.name,
             parameter=parameter
         )

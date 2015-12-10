@@ -77,6 +77,8 @@ class Configuration(dict):
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
         })
+        super(Configuration, self).update(kwargs)
+
         # Check the source node
         if source_node is not None and (
                 not is_source_node(source_node) or

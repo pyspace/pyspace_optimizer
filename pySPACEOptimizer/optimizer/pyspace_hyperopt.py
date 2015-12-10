@@ -58,25 +58,25 @@ class HyperoptOptimizer(PySPACEOptimizer):
                                     node_chain=[self._create_node(node_name) for node_name in pipeline])
                 yield (self._configuration, pipeline, self._backend)
 
-        pool = Pool()
-        results = pool.imap_unordered(optimize_pipeline, _optimize())
-        pool.close()
-#        results = []
-#        for args in _optimize():
-#            results.append(optimize_pipeline(args))
+#        pool = Pool()
+#        results = pool.imap_unordered(optimize_pipeline, _optimize())
+#        pool.close()
+        results = []
+        for args in _optimize():
+            results.append(optimize_pipeline(args))
 
         best = [None, float("inf")]
         for params, loss in results:
             if loss < best[1]:
                 best = [params, loss]
 
-        pool.join()
+#        pool.join()
         return best[0]
 
     def _create_node(self, node_name):
-#        if is_sink_node(node_name):
-#            return HyperoptSinkNode(node_name=node_name, configuration=self._configuration)
-#        elif is_source_node(node_name):
-#            return HyperoptSourceNode(node_name=node_name, configuration=self._configuration)
-#        else:
+        if is_sink_node(node_name):
+            return HyperoptSinkNode(node_name=node_name, configuration=self._configuration)
+        elif is_source_node(node_name):
+            return HyperoptSourceNode(node_name=node_name, configuration=self._configuration)
+        else:
             return HyperoptNode(node_name=node_name, configuration=self._configuration)
