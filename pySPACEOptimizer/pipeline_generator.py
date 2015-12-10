@@ -1,6 +1,6 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-from pySPACEOptimizer.configuration import Configuration, is_source_node, is_splitter_node
+from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node
 
 
 class PipelineGenerator(object):
@@ -15,7 +15,7 @@ class PipelineGenerator(object):
         The source and splitter nodes can be given by the configuration or determined dynamically by the generator.
 
         :param configuration: The configuration for this experiment to use for pipeline generation.
-        :type configuration: Configuration
+        :type configuration: Task
         :param pipeline_class: The class to use for pipeline creation it has to be a subclass of Pipeline
         :type pipeline_class: Pipeline
         :return: A new pipeline generator generating all pipelines able to process the given data set type.

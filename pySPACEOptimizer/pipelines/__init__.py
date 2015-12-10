@@ -3,9 +3,10 @@
 import copy
 
 import yaml
+
 import pySPACE
 from pySPACEOptimizer.pipelines.nodes import PipelineNode
-from pySPACEOptimizer.configuration import Configuration
+from pySPACEOptimizer.tasks.base_task import Task
 
 try:
     from yaml import CDumper as Dumper
@@ -21,7 +22,7 @@ class Pipeline(object):
         The pipeline uses the given nodes for processing.
 
         :param configuration: The configuration to use for this Pipeline
-        :type configuration: Configuration
+        :type configuration: Task
         :param node_chain: A list of node names to create the pipeline with
         :type node_chain: [PipelineNode]
 

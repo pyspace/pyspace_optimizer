@@ -1,8 +1,10 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 from argparse import ArgumentParser
-from pySPACEOptimizer.configuration import Configuration
-from pySPACEOptimizer.optimizer import get_optimizer
+
+from pySPACEOptimizer.optimizer import optimizer_factory
+from pySPACEOptimizer.tasks.base_task import Task
 
 
 def create_parser():
@@ -13,18 +15,20 @@ def create_parser():
     return parser
 
 
-def main(args):
+def main(args=None):
+    if args is None:
+        args = sys.argv
+    print("Start optimization..")
     parser = create_parser()
     arguments = parser.parse_args(args)
     with open(arguments.experiment, "rb") as file_:
-        experiment = Configuration.from_yaml(file_)
-    optimizer = get_optimizer(experiment.optimizer)(experiment, arguments.backend)
-    return optimizer.optimize()
+        task = Task.from_yaml(file_)
+    optimizer = optimizer_factory(task, arguments.backend)
+    best_result = optimizer.optimize()
+    print("Done..")
+    print("Best result: %s" % best_result)
+
 
 
 if __name__ == "__main__":
-    import sys
-    print("Start optimization..")
-    best_result = main(sys.argv)
-    print("Done..")
-    print("Best result: %s" % best_result)
+    main()

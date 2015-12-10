@@ -1,29 +1,18 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-from pyspace_base_optimizer import PySPACEOptimizer
+import pkg_resources
+
+from base_optimizer import PySPACEOptimizer
 from . import *
 
-__optimizer = {}
+
+OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
 
 
-def register_optimizer(name, class_):
-    global __optimizer
-    if name not in __optimizer:
-        if issubclass(class_, PySPACEOptimizer):
-            __optimizer[name] = class_
-        else:
-            raise TypeError("'%s' is not a subclass of '%s'" % (class_, PySPACEOptimizer))
-    else:
-        raise AttributeError("Duplicate name '%s' for optimizers" % name)
-
-
-def optimizer_factory(configuration, backend="serial"):
-    #TODO: Import all submodules to enable the dynamic declaration
-    return __optimizer[configuration["optimizer"]](configuration, backend)
-
-
-def optimizer(name):
-    def wrapper(class_):
-        register_optimizer(name, class_)
-        return class_
-    return wrapper
+def optimizer_factory(task_description, backend="serial"):
+    type_ = task_description["optimizer"]
+    for entry_point in pkg_resources.iter_entry_points(OPTIMIZER_ENTRY_POINT, type_):
+        # Import the corresponding object
+        entry_point.load()
+        # And create an object of it
+        return entry_point(task_description, backend)

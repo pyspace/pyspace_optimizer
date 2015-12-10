@@ -6,11 +6,6 @@ import os
 import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
-import yaml
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
 
 
 __all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node"]
@@ -32,7 +27,7 @@ def is_sink_node(node_name):
     return is_node_type(node_name, "sink")
 
 
-class Configuration(dict):
+class Task(dict):
 
     def __init__(self, input_path, optimizer, class_labels, main_class, max_pipeline_length=3, max_eval_time=60,
                  metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
@@ -61,7 +56,7 @@ class Configuration(dict):
         if main_class not in class_labels:
             raise ValueError("The main class is not defined as a class label")
 
-        super(Configuration, self).__init__({
+        super(Task, self).__init__({
             "data_set_path": input_path,
             "max_pipeline_length": max_pipeline_length,
             "source_node": source_node,
@@ -77,7 +72,7 @@ class Configuration(dict):
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
         })
-        super(Configuration, self).update(kwargs)
+        super(Task, self).update(kwargs)
 
         # Check the source node
         if source_node is not None and (
@@ -95,10 +90,10 @@ class Configuration(dict):
                 if input_type not in nodes_by_input_type:
                     nodes_by_input_type[input_type] = []
                 nodes_by_input_type[input_type].append(node_name)
-        super(Configuration, self).__setitem__("nodes_by_input_type", nodes_by_input_type)
+        super(Task, self).__setitem__("nodes_by_input_type", nodes_by_input_type)
 
     def __str__(self):
-        return "Configuration<%s>" % self["data_set_path"]
+        return "Task<%s>" % self["data_set_path"]
 
     @staticmethod
     def __valid_node(node_name):
@@ -182,8 +177,3 @@ class Configuration(dict):
             result = {}
         result["class_labels"] = [self["class_labels"]]
         return result
-
-    @classmethod
-    def from_yaml(cls, stream):
-        values = yaml.load(stream, Loader=Loader)
-        return cls(**values)

@@ -1,16 +1,15 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-import os
 import numpy
+import os
+
+from base_optimizer import PySPACEOptimizer
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL, Trials
-from pySPACEOptimizer.configuration import is_sink_node, is_source_node
+from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
-from pyspace_base_optimizer import PySPACEOptimizer
-from . import optimizer
-from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
-from multiprocessing.pool import Pool
+from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 
 
 def optimize_pipeline(args):
@@ -45,7 +44,6 @@ def optimize_pipeline(args):
     return best, trials.best_trial["result"]["loss"]
 
 
-@optimizer("HyperoptOptimizer")
 class HyperoptOptimizer(PySPACEOptimizer):
 
     def __init__(self, configuration, backend="serial"):

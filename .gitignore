@@ -1,0 +1,10 @@
+/.mr.developer.cfg
+/package_sources
+/pySPACEOptimizer.egg-info
+/parts
+/bin
+/eggs
+/develop-eggs
+/.installed.cfg
+/unittest_log.txt
+.idea
