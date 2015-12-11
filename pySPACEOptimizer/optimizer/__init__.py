@@ -6,6 +6,12 @@ import pkg_resources
 OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
 
 
+
+
+def list_optimizers():
+    return [entry_point.name for entry_point in pkg_resources.iter_entry_points(OPTIMIZER_ENTRY_POINT)]
+
+
 def optimizer_factory(task, backend="serial"):
     """
     Creates a new optimizer using the given ``task`` and ``backend``.
