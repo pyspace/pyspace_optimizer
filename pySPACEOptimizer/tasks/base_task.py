@@ -1,12 +1,13 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division
+
 import glob
 import os
+
 import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
-
 
 __all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node"]
 
@@ -84,20 +85,13 @@ class Task(dict):
         if not is_sink_node(sink_node):
             raise ValueError("The node '%s' is not a sink node" % sink_node)
 
-        nodes_by_input_type = {}
-        for node_name, node in self.nodes.iteritems():
-            for input_type in node.get_input_types():
-                if input_type not in nodes_by_input_type:
-                    nodes_by_input_type[input_type] = []
-                nodes_by_input_type[input_type].append(node_name)
-        super(Task, self).__setitem__("nodes_by_input_type", nodes_by_input_type)
-
     def __str__(self):
         return "Task<%s>" % self["data_set_path"]
 
     @staticmethod
     def __valid_node(node_name):
-        return not is_splitter_node(node_name) and not is_node_type(node_name, "meta")
+        return all([not is_node_type(node_name, type_) for type_ in ["data_selection", "debug", "meta",
+                                                                     "splitter", "visualization"]])
 
     @property
     def nodes(self):
@@ -111,7 +105,7 @@ class Task(dict):
             if self["source_node"] is not None and self["source_node"] not in nodes:
                 nodes[self["source_node"]] = DEFAULT_NODE_MAPPING[self["source_node"]]
             elif self["source_node"] is None:
-                # Append only non splitter nodes
+                # Append all source nodes
                 nodes.update({
                     node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)
                 })
@@ -127,7 +121,13 @@ class Task(dict):
         :return: A dictionary sorted by the type of input the nodes can process.
         :rtype: Dict
         """
-        return self["nodes_by_input_type"]
+        nodes_by_input_type = {}
+        for node_name, node in self.nodes.iteritems():
+            for input_type in node.get_input_types():
+                if input_type not in nodes_by_input_type:
+                    nodes_by_input_type[input_type] = []
+                nodes_by_input_type[input_type].append(node_name)
+        return nodes_by_input_type
 
     @property
     def data_set_type(self):

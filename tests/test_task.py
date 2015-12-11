@@ -1,13 +1,12 @@
 import unittest
 
-from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.pipelines import PipelineNode
 from pySPACEOptimizer.tasks import task_from_yaml
 from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_sink_node
+from pySPACEOptimizer.tasks.classification import ClassificationTask
 from pyspace_test import PySPACETestCase
 
-
-MINIMAL_CONFIG="""
+MINIMAL_CONFIG = """
 type: classification
 input_path: "example_summary_split"
 optimizer: HyperoptOptimizer
@@ -16,7 +15,7 @@ main_class: Target
 """
 
 
-EXTENDED_CONFIG="""
+EXTENDED_CONFIG = """
 type: classification
 input_path: "example_summary_split"
 optimizer: HyperoptOptimizer
@@ -37,16 +36,16 @@ parameter_ranges:
 """
 
 
-class ExperimentTestCase(PySPACETestCase):
+class TaskestCase(PySPACETestCase):
 
     def test_weighted_nodes_by_input_type(self):
         node_name = "SorSvmNode"
         experiment = Task("example_summary",
-                          optimizer=PySPACEOptimizer,
+                          optimizer="PySPACEOptimizer",
                           node_weights={
                                         node_name: 10,
                                    },
-                          class_labels=["Standard","Target"],
+                          class_labels=["Standard", "Target"],
                           main_class="Target")
         node = PipelineNode(node_name, experiment)
         nodes = experiment.weighted_nodes_by_input_type()
@@ -56,8 +55,8 @@ class ExperimentTestCase(PySPACETestCase):
     def test_white_list(self):
         white_list = ["SorSvmNode"]
         experiment = Task("example_summary",
-                          optimizer=PySPACEOptimizer,
-                          class_labels=["Standard","Target"],
+                          optimizer="PySPACEOptimizer",
+                          class_labels=["Standard", "Target"],
                           main_class="Target",
                           whitelist=white_list)
         self.assertEqual(len([node for node in experiment.nodes
@@ -68,8 +67,8 @@ class ExperimentTestCase(PySPACETestCase):
     def test_wrong_weight_dict(self):
         weight_list = {"NotExistingNode": 1337}
         Task("example_summary",
-             optimizer=PySPACEOptimizer,
-             class_labels=["Standard","Target"],
+             optimizer="PySPACEOptimizer",
+             class_labels=["Standard", "Target"],
              main_class="Target",
              node_weights=weight_list)
 
@@ -77,8 +76,8 @@ class ExperimentTestCase(PySPACETestCase):
     def test_wrong_weight_dict2(self):
         weight_list = {"SorSvmNode": -42}
         Task("example_summary",
-             optimizer=PySPACEOptimizer,
-             class_labels=["Standard","Target"],
+             optimizer="PySPACEOptimizer",
+             class_labels=["Standard", "Target"],
              main_class="Target",
              node_weights=weight_list)
 
@@ -86,8 +85,8 @@ class ExperimentTestCase(PySPACETestCase):
     def test_wrong_white_list(self):
         white_list = ["NotExistingNode"]
         Task("example_summary",
-             optimizer=PySPACEOptimizer,
-             class_labels=["Standard","Target"],
+             optimizer="PySPACEOptimizer",
+             class_labels=["Standard", "Target"],
              main_class="Target",
              whitelist=white_list)
 
@@ -98,3 +97,10 @@ class ExperimentTestCase(PySPACETestCase):
     def test_extended_config_from_yaml(self):
         task = task_from_yaml(EXTENDED_CONFIG)
         self.assertIsNotNone(task)
+
+    def test_classification_nodes(self):
+        task = ClassificationTask("example_summary",
+                                  optimizer="PySPACEOptimizer",
+                                  class_labels=["Standard", "Target"],
+                                  main_class="Target")
+        self.assertGreater(len(task.nodes.keys()), 0)
