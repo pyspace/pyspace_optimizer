@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import abc
 
-from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 
 __all__ = ["PySPACEOptimizer", "NoPipelineFound"]
 

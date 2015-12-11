@@ -1,15 +1,12 @@
+import os
 from setuptools import setup
+
 from pySPACEOptimizer.optimizer import OPTIMIZER_ENTRY_POINT
 from pySPACEOptimizer.tasks import TASK_ENTRY_POINT
 
-
-description = """
-This software implements a hyperparmeter optimizer for pySPACE.
-It uses Hyperopt for the optimization process and is able to
-optimize even very complex pipelines.
-It does not only optimize the hyperparameters of the processing
-pipeline but also the structure of the pipeline itself.
-"""
+dirname = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(dirname, "README.md", "rb")) as readme:
+    description = readme.read()
 
 
 setup(

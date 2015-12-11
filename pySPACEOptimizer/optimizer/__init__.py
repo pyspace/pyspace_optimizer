@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 import pkg_resources
 
-from base_optimizer import PySPACEOptimizer
-from . import *
-
 
 OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
 
