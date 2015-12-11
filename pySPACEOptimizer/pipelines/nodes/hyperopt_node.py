@@ -1,13 +1,14 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
 from hyperopt import hp
+
+from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
 
 
 class HyperoptNode(PipelineNode):
 
-    def __init__(self, node_name, configuration):
-        super(HyperoptNode, self).__init__(node_name=node_name, configuration=configuration)
+    def __init__(self, node_name, task):
+        super(HyperoptNode, self).__init__(node_name=node_name, task=task)
 
     @property
     def parameter_space(self):

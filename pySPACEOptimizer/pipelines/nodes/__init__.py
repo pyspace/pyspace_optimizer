@@ -1,16 +1,19 @@
 import inspect
-from pySPACE.missions import nodes
 from collections import defaultdict
+
+from pySPACE.missions import nodes
 
 
 class PipelineNode(object):
 
-    def __init__(self, node_name, configuration):
+    def __init__(self, node_name, task):
         """
         Creates a new node for a pipeline using the given pySPACE node name.
 
         :param node_name: The name of the node to create a pipeline element for.
         :type node_name: str
+        :param task: The task to execute with the pipeline this node is used in
+        :type task: T <= Task
         :return: A new pipeline element wrapping the given pySPACE node.
         :rtype: PipelineNode
         """
@@ -18,7 +21,7 @@ class PipelineNode(object):
         self.name = node_name
         self.__parameters = None
         self._values = {}
-        for param, value in configuration.default_parameters(node_name).iteritems():
+        for param, value in task.default_parameters(node_name).iteritems():
             if isinstance(value, (list, dict)):
                 self._values[param] = value
             else:
@@ -137,10 +140,10 @@ class PipelineNode(object):
 
 class PipelineSinkNode(PipelineNode):
 
-    def __init__(self, node_name, configuration):
-        super(PipelineSinkNode, self).__init__(node_name, configuration=configuration)
-        self._main_class = configuration["main_class"]
-        self._class_labels = configuration["class_labels"]
+    def __init__(self, node_name, task):
+        super(PipelineSinkNode, self).__init__(node_name, task=task)
+        self._main_class = task["main_class"]
+        self._class_labels = task["class_labels"]
         self._property = "ir_class"
 
     @property

@@ -3,8 +3,9 @@
 import numpy
 import os
 
-from base_optimizer import PySPACEOptimizer
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL, Trials
+
+from base_optimizer import PySPACEOptimizer
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline
@@ -46,15 +47,15 @@ def optimize_pipeline(args):
 
 class HyperoptOptimizer(PySPACEOptimizer):
 
-    def __init__(self, configuration, backend="serial"):
-        super(HyperoptOptimizer, self).__init__(configuration, backend)
+    def __init__(self, task, backend="serial"):
+        super(HyperoptOptimizer, self).__init__(task, backend)
 
     def optimize(self):
         def _optimize():
-            for pipeline in PipelineGenerator(self._configuration):
-                pipeline = Pipeline(configuration=self._configuration,
+            for pipeline in PipelineGenerator(self._task):
+                pipeline = Pipeline(configuration=self._task,
                                     node_chain=[self._create_node(node_name) for node_name in pipeline])
-                yield (self._configuration, pipeline, self._backend)
+                yield (self._task, pipeline, self._backend)
 
 #        pool = Pool()
 #        results = pool.imap_unordered(optimize_pipeline, _optimize())
@@ -73,8 +74,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def _create_node(self, node_name):
         if is_sink_node(node_name):
-            return HyperoptSinkNode(node_name=node_name, configuration=self._configuration)
+            return HyperoptSinkNode(node_name=node_name, task=self._task)
         elif is_source_node(node_name):
-            return HyperoptSourceNode(node_name=node_name, configuration=self._configuration)
+            return HyperoptSourceNode(node_name=node_name, task=self._task)
         else:
-            return HyperoptNode(node_name=node_name, configuration=self._configuration)
+            return HyperoptNode(node_name=node_name, task=self._task)

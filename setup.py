@@ -5,7 +5,7 @@ from pySPACEOptimizer.optimizer import OPTIMIZER_ENTRY_POINT
 from pySPACEOptimizer.tasks import TASK_ENTRY_POINT
 
 dirname = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(dirname, "README.md", "rb")) as readme:
+with open(os.path.join(dirname, "README.md"), "rb") as readme:
     description = readme.read()
 
 
@@ -25,7 +25,7 @@ setup(
             "pySPACEOptimizer = pySPACEOptimizer.__main__:main"
         ],
         OPTIMIZER_ENTRY_POINT: [
-            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt:HyperoptOptimizer"
+            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:HyperoptOptimizer"
         ],
         TASK_ENTRY_POINT: [
             "classification = pySPACEOptimizer.tasks.classification:ClassificationTask"

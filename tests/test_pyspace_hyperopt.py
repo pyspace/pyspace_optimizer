@@ -1,3 +1,5 @@
+from nose.tools import nottest
+
 from pySPACEOptimizer.optimizer import optimizer_factory
 from pySPACEOptimizer.tasks.classification import ClassificationTask
 from pyspace_test import PySPACETestCase
@@ -5,6 +7,7 @@ from pyspace_test import PySPACETestCase
 
 class HyperoptOptimizerTestCase(PySPACETestCase):
 
+    @nottest
     def test_optimization(self):
         experiment = ClassificationTask(input_path="example_summary_split",
                                         optimizer="HyperoptOptimizer",

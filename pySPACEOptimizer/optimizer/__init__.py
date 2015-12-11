@@ -6,10 +6,21 @@ import pkg_resources
 OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
 
 
-def optimizer_factory(task_description, backend="serial"):
-    type_ = task_description["optimizer"]
+def optimizer_factory(task, backend="serial"):
+    """
+    Creates a new optimizer using the given ``task`` and ``backend``.
+    The ``task`` has to have at least the key `optimizer` which defines the type
+    of optimizer to use.
+    The ``backend`` defines which pySPACE backend should be used during the execution.
+
+    :param task: The task to execute with this optimizer.
+    :type task: T <= Task
+    :param backend: The pySPACE backend to use.
+                    Possible values are "serial", "mcore", "mpi", "loadl" (Default: "serial")
+    :type backend: str
+    :return: A new optimizer optimizing the given ``task`` using the given ``backend``.
+    :rtype: R <= PySPACEOptimizer
+    """
+    type_ = task["optimizer"]
     for entry_point in pkg_resources.iter_entry_points(OPTIMIZER_ENTRY_POINT, type_):
-        # Import the corresponding object
-        entry_point.load()
-        # And create an object of it
-        return entry_point(task_description, backend)
+        return entry_point.resolve()(task=task, backend=backend)

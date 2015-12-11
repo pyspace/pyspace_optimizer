@@ -23,8 +23,8 @@ class PySPACEOptimizer(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, configuration, backend="serial"):
-        self._configuration = configuration
+    def __init__(self, task, backend="serial"):
+        self._task = task
         self._backend = backend
 
     @abc.abstractmethod
