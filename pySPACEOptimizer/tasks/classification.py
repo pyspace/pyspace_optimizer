@@ -19,3 +19,13 @@ class ClassificationTask(Task):
                     any([node.lower().find(type_) != -1 for type_ in ["classifier"]]):
                 nodes[node] = class_
         return nodes
+
+
+class ClassificationTaskWithoutScikit(Task):
+    @property
+    def nodes(self):
+        nodes = {}
+        for node, class_ in super(ClassificationTaskWithoutScikit, self).nodes.iteritems():
+            if is_classification_task_node(node):
+                nodes[node] = class_
+        return nodes

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
+import copy
 import glob
 import os
 
@@ -86,7 +87,7 @@ class Task(dict):
             raise ValueError("The node '%s' is not a sink node" % sink_node)
 
     def __str__(self):
-        return "Task<%s>" % self["data_set_path"]
+        return "%s<%s>" % (self.__class__.__name__, self["data_set_path"])
 
     @staticmethod
     def __valid_node(node_name):
@@ -168,12 +169,15 @@ class Task(dict):
             except Exception:
                 return 0
 
-    def default_parameters(self, node_name):
+    def default_parameters(self, node):
+        #:type node: PipelineNode
         definitions = [parameter_range for parameter_range in self["parameter_ranges"]
-                       if parameter_range["node"] == node_name]
+                       if parameter_range["node"] == node.name]
         if definitions:
             result = definitions[0]["parameters"]
         else:
             result = {}
-        result["class_labels"] = [self["class_labels"]]
+
+        if "class_labels" in node.parameters:
+            result["class_labels"] = copy.copy(self["class_labels"])
         return result

@@ -1,10 +1,8 @@
-## pySPACEOptimizer
+pySPACEOptimizer
+================
 
-## Synopsis
-
-This software implements a hyperparmeter optimizer for pySPACE.
-It uses Hyperopt for the optimization process and is able to optimize even very complex pipelines.
-It does not only optimize the hyperparameters of the processing pipeline but also the structure of the pipeline itself.
+pySPACE optimizer is a hyperparmeter optimizer for pySPACE.
+It optimizes the structure and the parameters of complex processing pipelines using pySPACE and Hyperopt.
 
 ## Code Example
 

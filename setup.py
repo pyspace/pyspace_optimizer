@@ -25,10 +25,12 @@ setup(
             "pySPACEOptimizer = pySPACEOptimizer.__main__:main"
         ],
         OPTIMIZER_ENTRY_POINT: [
-            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:HyperoptOptimizer"
+            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:HyperoptOptimizer",
+            "SerialHyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:SerialHyperoptOptimizer"
         ],
         TASK_ENTRY_POINT: [
-            "classification = pySPACEOptimizer.tasks.classification:ClassificationTask"
+            "classification = pySPACEOptimizer.tasks.classification:ClassificationTask",
+            "classificationWithoutScikit = pySPACEOptimizer.tasks.classification:ClassificationTaskWithoutScikit"
         ]
     },
     classifiers=["Development Status :: 2 - Pre-Alpha",

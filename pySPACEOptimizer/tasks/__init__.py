@@ -34,5 +34,10 @@ def task_factory(task_description):
     :rtype: T <= Task
     """
     type = task_description["type"]
-    for entry_point in pkg_resources.iter_entry_points(TASK_ENTRY_POINT, type):
-        return entry_point.resolve()(**task_description)
+    entry_points = [entry_point for entry_point in pkg_resources.iter_entry_points(TASK_ENTRY_POINT, type)]
+    if len(entry_points) > 1:
+        raise RuntimeWarning("More than one entry point found for task type '%s', please check installation.\n"
+                             "Taking first entry point and ignoring all others" % type)
+    elif not entry_points:
+        raise RuntimeError("No entry point found for task type '%s', please check installation" % type)
+    return entry_points[0].resolve()(**task_description)
