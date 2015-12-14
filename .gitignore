@@ -6,3 +6,4 @@
 /.installed.cfg
 unittest_log.txt
 .idea
+*.pyc
