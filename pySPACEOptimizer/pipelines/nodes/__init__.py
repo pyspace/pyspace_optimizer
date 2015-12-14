@@ -2,6 +2,7 @@ import inspect
 from collections import defaultdict
 
 from pySPACE.missions import nodes
+from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE
 
 
 class PipelineNode(object):
@@ -44,20 +45,23 @@ class PipelineNode(object):
         :return: A list of the parameters of this node.
         :rtype: list[str]
         """
-        if self.__optimization_parameters is None:
-            self.__optimization_parameters = set()
-            for class_ in inspect.getmro(self.class_):
-                if class_ != object and hasattr(class_, "__init__"):
-                    argspec = inspect.getargspec(class_.__init__)
-                    if argspec.defaults is not None:
-                        default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                        self.__optimization_parameters.update([arg for arg, default in default_args
-                                                               if arg != "self" and
-                                                               arg.lower().find("debug") == -1 and
-                                                               arg.lower().find("warn") == -1 and
-                                                               arg not in self._values and
-                                                               isinstance(default, (bool, float, int))])
-        return self.__optimization_parameters
+        if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
+            if self.__optimization_parameters is None:
+                self.__optimization_parameters = set()
+                for class_ in inspect.getmro(self.class_):
+                    if class_ != object and hasattr(class_, "__init__"):
+                        argspec = inspect.getargspec(class_.__init__)
+                        if argspec.defaults is not None:
+                            default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
+                            self.__optimization_parameters.update([arg for arg, default in default_args
+                                                                   if arg != "self" and
+                                                                   arg.lower().find("debug") == -1 and
+                                                                   arg.lower().find("warn") == -1 and
+                                                                   arg not in self._values and
+                                                                   isinstance(default, (bool, float, int))])
+            return self.__optimization_parameters
+        else:
+            return getattr(self.class_, PARAMETER_ATTRIBUTE).keys()
 
     @property
     def parameter_space(self):
@@ -71,33 +75,36 @@ class PipelineNode(object):
         :return: A dictionary containing all parameters and their default values.
         :rtype: dict[str, object]
         """
-        # Return 1 for every parameter not set
-        space = defaultdict(lambda: 1)
-        parameters = self.optimization_parameters
-        for class_ in inspect.getmro(self.class_):
-            if class_ != object and hasattr(class_, "__init__"):
-                argspec = inspect.getargspec(class_.__init__)
-                if argspec.defaults is not None:
-                    default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                    for param, default in default_args:
-                        if param in parameters:
-                            param = self._make_parameter_name(param)
-                            if isinstance(default, bool):
-                                space[param] = [True, False]
-                            elif isinstance(default, float):
-                                space[param] = {
-                                    "type": "float",
-                                    "mu": default,
-                                    "sigma": 1
-                                }
-                            elif isinstance(default, int):
-                                space[param] = {
-                                    "type": "int",
-                                    "mu": default,
-                                    "sigma": 1,
-                                    "q": 1,
-                                }
-        return space
+        if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
+            # Return 1 for every parameter not set
+            space = defaultdict(lambda: 1)
+            parameters = self.optimization_parameters
+            for class_ in inspect.getmro(self.class_):
+                if class_ != object and hasattr(class_, "__init__"):
+                    argspec = inspect.getargspec(class_.__init__)
+                    if argspec.defaults is not None:
+                        default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
+                        for param, default in default_args:
+                            if param in parameters:
+                                param = self._make_parameter_name(param)
+                                if isinstance(default, bool):
+                                    space[param] = [True, False]
+                                elif isinstance(default, float):
+                                    space[param] = {
+                                        "type": "float",
+                                        "mu": default,
+                                        "sigma": 1
+                                    }
+                                elif isinstance(default, int):
+                                    space[param] = {
+                                        "type": "int",
+                                        "mu": default,
+                                        "sigma": 1,
+                                        "q": 1,
+                                    }
+            return space
+        else:
+            return getattr(self.class_, PARAMETER_ATTRIBUTE)
 
     def as_dictionary(self):
         """
