@@ -179,5 +179,5 @@ class Task(dict):
             result = {}
 
         if "class_labels" in node.parameters:
-            result["class_labels"] = copy.copy(self["class_labels"])
+            result["class_labels"] = [self["class_labels"]]
         return result

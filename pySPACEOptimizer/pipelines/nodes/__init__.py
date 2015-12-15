@@ -1,3 +1,4 @@
+import copy
 import inspect
 from collections import defaultdict
 
@@ -22,7 +23,11 @@ class PipelineNode(object):
         self.name = node_name
         self.__parameters = None
         self.__optimization_parameters = None
-        self._values = task.default_parameters(self)
+        self._values = {}
+        for parameter, values in task.default_parameters(self).iteritems():
+            if not isinstance(values, list):
+                values = [values]
+            self._values[self._make_parameter_name(parameter)] = values
 
     @property
     def parameters(self):
@@ -45,23 +50,25 @@ class PipelineNode(object):
         :return: A list of the parameters of this node.
         :rtype: list[str]
         """
-        if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
-            if self.__optimization_parameters is None:
-                self.__optimization_parameters = set()
-                for class_ in inspect.getmro(self.class_):
-                    if class_ != object and hasattr(class_, "__init__"):
-                        argspec = inspect.getargspec(class_.__init__)
-                        if argspec.defaults is not None:
-                            default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                            self.__optimization_parameters.update([arg for arg, default in default_args
-                                                                   if arg != "self" and
-                                                                   arg.lower().find("debug") == -1 and
-                                                                   arg.lower().find("warn") == -1 and
-                                                                   arg not in self._values and
-                                                                   isinstance(default, (bool, float, int))])
-            return self.__optimization_parameters
-        else:
-            return getattr(self.class_, PARAMETER_ATTRIBUTE).keys()
+        if self.__optimization_parameters is None:
+            if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
+                    self.__optimization_parameters = set()
+                    for class_ in inspect.getmro(self.class_):
+                        if class_ != object and hasattr(class_, "__init__"):
+                            argspec = inspect.getargspec(class_.__init__)
+                            if argspec.defaults is not None:
+                                default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
+                                self.__optimization_parameters.update([arg for arg, default in default_args
+                                                                       if arg != "self" and
+                                                                       arg.lower().find("debug") == -1 and
+                                                                       arg.lower().find("warn") == -1 and
+                                                                       arg not in self._values and
+                                                                       isinstance(default, (bool, float, int))])
+            else:
+                self.__optimization_parameters = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE).keys())
+            self.__optimization_parameters.update(self._values.keys())
+        return self.__optimization_parameters
+
 
     @property
     def parameter_space(self):
@@ -102,9 +109,10 @@ class PipelineNode(object):
                                         "sigma": 1,
                                         "q": 1,
                                     }
-            return space
         else:
-            return getattr(self.class_, PARAMETER_ATTRIBUTE)
+            space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE))
+        space.update(self._values)
+        return space
 
     def as_dictionary(self):
         """
@@ -119,11 +127,6 @@ class PipelineNode(object):
         if self.optimization_parameters:
             result["parameters"] = {param: "${%s}" % self._make_parameter_name(param)
                                     for param in self.optimization_parameters}
-        if self._values:
-            if "parameters" in result:
-                result["parameters"].update(self._values)
-            else:
-                result["parameters"] = self._values
         return result
 
     def _make_parameter_name(self, parameter):
