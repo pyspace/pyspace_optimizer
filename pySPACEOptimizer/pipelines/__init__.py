@@ -1,7 +1,6 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import copy
-
 import yaml
 
 import pySPACE
@@ -96,3 +95,9 @@ class Pipeline(object):
         backend = pySPACE.create_backend(backend)
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
         return pySPACE.run_operation(backend, operation)
+
+    def __hash__(self):
+        # Hash all nodes and concat them to a string
+        s = "".join([unicode(hash(node)) for node in self._nodes])
+        # Hash the resulting string
+        return hash(s)

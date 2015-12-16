@@ -159,6 +159,20 @@ class PipelineNode(object):
     def __repr__(self):
         return self.name
 
+    def __hash__(self):
+        l = [self.name]
+        def append_from_list(list_):
+            for elem in list_:
+                if isinstance(elem, list):
+                    append_from_list(elem)
+                else:
+                    l.append(unicode(elem))
+
+        for key, value in self._values.iteritems():
+            l.append(key)
+            append_from_list(value)
+        return hash("".join(l))
+
 
 class PipelineSinkNode(PipelineNode):
 
