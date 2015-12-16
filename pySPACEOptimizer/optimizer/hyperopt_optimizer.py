@@ -8,8 +8,9 @@ import warnings
 
 import sys
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
-from hyperopt.mongoexp import MongoTrials, main_worker
+from hyperopt.mongoexp import MongoTrials, main_worker, MongoJobs, as_mongo_str, MongoWorker, ReserveTimeout
 
+import pySPACE
 from base_optimizer import PySPACEOptimizer
 from optimizer_pool import OptimizerPool
 from multiprocessing import Process
@@ -19,8 +20,8 @@ from pySPACEOptimizer.pipelines import Pipeline
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 
-LOGGER = logging.getLogger("pySPACEOptimizer.optimizer.HyperoptOptimizer")
-LOGGER.setLevel(logging.DEBUG)
+MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_PORT_27017_TCP_ADDR", "localhost"),
+                                                    "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
 
 
 def __minimize(spec):
@@ -46,27 +47,33 @@ def __minimize(spec):
         }
 
 
-def __worker(mongodb_connection):
-    old_argv = sys.argv
-    try:
-        # Replace the system arguments
-        sys.argv = [__file__, "--mongo=%s" % mongodb_connection, "--poll-interval=5"]
-        # Start the worker
-        main_worker()
-    finally:
-        sys.argv = old_argv
+class WorkerProcess(Process):
+
+    def __init__(self, mongodb_connection, exp_key=None, workdir=None):
+        super(WorkerProcess, self).__init__(name="HyperoptMongoWorker")
+        self.__connection = mongodb_connection
+        self.__key = exp_key
+        self.__workdir = workdir
+
+    def run(self):
+        mj = MongoJobs.new_from_connection_str(self.__connection + '/jobs')
+        mworker = MongoWorker(mj, exp_key=self.__key, workdir=self.__workdir)
+        while True:
+            mworker.run_one()
 
 
 def optimize_pipeline(args):
     task, pipeline, _ = args
     pipeline_space = [args, pipeline.pipeline_space]
-    connection = task["mongodb_connection"] if "mongodb_connection" in task else "mongo://localhost:1234/"
+    connection = task["mongodb_connection"] if "mongodb_connection" in task else MONGODB_CONNECTION
     # Store each pipeline in it's own db
-    connection += "%s" % hash(pipeline)
+    connection += "/%s" % hash(pipeline)
     # TODO: Enable usage of different backends (maybe clustering?!)
-    process = Process(target=__worker, args=(connection,))
+    worker = WorkerProcess(connection, workdir=pySPACE.configuration.storage)
     try:
-        process.start()
+        # Start the worker
+        worker.start()
+        # Run the minimizer
         trials = MongoTrials(connection + "/jobs")
         best = fmin(fn=__minimize,
                     space=pipeline_space,
@@ -75,8 +82,8 @@ def optimize_pipeline(args):
                     trials=trials)
         return trials.best_trial["result"]["loss"], pipeline, best
     finally:
-        process.terminate()
-        process.join()
+        worker.terminate()
+        worker.join()
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -132,7 +139,6 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
 
         best = [None, float("inf")]
         for params, loss in results:
-            LOGGER.warning("Checking Result: Params: %s \nLoss: %s" % (params, loss))
             if loss < best[1]:
                 best = [params, loss]
 
