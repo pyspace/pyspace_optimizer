@@ -1,6 +1,13 @@
+import os
+
 from pySPACEOptimizer.optimizer import optimizer_factory
 from pySPACEOptimizer.tasks import task_factory
 from pyspace_test import PySPACETestCase
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 
 class HyperoptOptimizerTestCase(PySPACETestCase):

@@ -1,24 +1,25 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-import logging
 import numpy
 import os
 import time
 import warnings
-
-import sys
-from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
-from hyperopt.mongoexp import MongoTrials, main_worker, MongoJobs, as_mongo_str, MongoWorker, ReserveTimeout
-
 import pySPACE
+
+from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
+from hyperopt.mongoexp import MongoTrials, MongoJobs, MongoWorker
+
 from base_optimizer import PySPACEOptimizer
 from optimizer_pool import OptimizerPool
 from multiprocessing import Process
+
+from pySPACE.missions.nodes.decorators import ChoiceParameter
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
-from pySPACEOptimizer.pipelines import Pipeline
+from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
+
 
 MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_PORT_27017_TCP_ADDR", "localhost"),
                                                     "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
@@ -80,6 +81,13 @@ def optimize_pipeline(args):
                     algo=task["suggestion_algorithm"] if "suggestion_algorithm" in task else tpe.suggest,
                     max_evals=task["max_evaluations"] if "max_evaluations" in task else 100,
                     trials=trials)
+        # Replace indexes of choice parameters with the selected values
+        new_pipeline_space = {}
+        for node in pipeline.nodes:
+            new_pipeline_space.update(super(type(node), node).parameter_space)
+        for key, value in best.iteritems():
+            if isinstance(new_pipeline_space[key], ChoiceParameter):
+                best[key] = new_pipeline_space[key].choices[value]
         return trials.best_trial["result"]["loss"], pipeline, best
     finally:
         worker.terminate()

@@ -36,6 +36,10 @@ class Pipeline(object):
         self._configuration = configuration
 
     @property
+    def nodes(self):
+        return self._nodes
+
+    @property
     def pipeline_space(self):
         """
         Returns the parameter space of the pipeline.
@@ -96,8 +100,16 @@ class Pipeline(object):
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
         return pySPACE.run_operation(backend, operation)
 
+    def __eq__(self, other):
+        if hasattr(other, "nodes"):
+            for node in self.nodes:
+                if not node in other.nodes:
+                    return False
+            return True
+        return False
+
     def __hash__(self):
         # Hash all nodes and concat them to a string
-        s = "".join([unicode(hash(node)) for node in self._nodes])
+        s = "".join([unicode(hash(node)) for node in self.nodes])
         # Hash the resulting string
         return hash(s)
