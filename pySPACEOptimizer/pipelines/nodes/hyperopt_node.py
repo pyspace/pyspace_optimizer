@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 from hyperopt import hp
 
+from pySPACE.missions.nodes.decorators import UniformParameter, QUniformParameter, NormalParameter, QNormalParameter, \
+    ChoiceParameter
 from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
 
 
@@ -14,24 +16,16 @@ class HyperoptNode(PipelineNode):
     def parameter_space(self):
         space = {}
         for key, value in super(HyperoptNode, self).parameter_space.iteritems():
-            if isinstance(value, dict):
-                # Dict objects represent a distribution
-                if all(x in value.keys() for x in ["mu", "sigma"]):
-                    if "type" in value and value["type"] == "int":
-                        # Integer distribution, use qlognormal
-                        space[key] = hp.qlognormal(key, value["mu"], value["sigma"], value["q"])
-                    else:
-                        # (Log-)normal distribution
-                        space[key] = hp.lognormal(key, value["mu"], value["sigma"])
-                elif all(x in value.keys() for x in ["min", "max"]):
-                    # Uniform distribution
-                    if "type" in value and value["type"] == "int":
-                        space[key] = hp.qloguniform(key, value["min"], value["max"], value["q"])
-                    else:
-                        space[key] = hp.loguniform(key, value["min"], value["max"])
-            else:
-                # Create a choice with the value
-                space[key] = hp.choice(key, value)
+            if isinstance(value, QUniformParameter):
+                space[key] = hp.qloguniform(key, value.min, value.max, value.q)
+            elif isinstance(value, UniformParameter):
+                space[key] = hp.loguniform(key, value.min, value.max)
+            elif isinstance(value, QNormalParameter):
+                space[key] = hp.qlognormal(key, value.mu, value.sigma, value.q)
+            elif isinstance(value, NormalParameter):
+                space[key] = hp.lognormal(key, value.mu, value.sigma)
+            elif isinstance(value, ChoiceParameter):
+                space[key] = hp.choice(key, value.choices)
         return space
 
 

@@ -3,7 +3,8 @@ import inspect
 from collections import defaultdict
 
 from pySPACE.missions import nodes
-from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE
+from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, ChoiceParameter, NormalParameter, QNormalParameter, \
+    BooleanParameter
 
 
 class PipelineNode(object):
@@ -23,11 +24,11 @@ class PipelineNode(object):
         self.name = node_name
         self.__parameters = None
         self.__optimization_parameters = None
-        self._values = {}
+        self._values = set()
         for parameter, values in task.default_parameters(self).iteritems():
             if not isinstance(values, list):
                 values = [values]
-            self._values[self._make_parameter_name(parameter)] = values
+            self._values.add(ChoiceParameter(parameter_name=parameter, choices=values))
 
     @property
     def parameters(self):
@@ -45,30 +46,35 @@ class PipelineNode(object):
     def optimization_parameters(self):
         """
         Returns the names of the parameters of this node.
-        Every parameter to the node's __init__ method is considered as a parameter of the node.
+        If the class that implements this node defines it's hyper parameters, these will be used as
+        optimization parameters. Otherwise every parameter of the node's __init__ method that has a default of type
+        bool, float, int  is considered as a parameter of the node except for:
+            - self
+            - .*debug.*
+            - .*warn.*
 
         :return: A list of the parameters of this node.
         :rtype: list[str]
         """
         if self.__optimization_parameters is None:
             if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
-                    self.__optimization_parameters = set()
-                    for class_ in inspect.getmro(self.class_):
-                        if class_ != object and hasattr(class_, "__init__"):
-                            argspec = inspect.getargspec(class_.__init__)
-                            if argspec.defaults is not None:
-                                default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                                self.__optimization_parameters.update([arg for arg, default in default_args
-                                                                       if arg != "self" and
-                                                                       arg.lower().find("debug") == -1 and
-                                                                       arg.lower().find("warn") == -1 and
-                                                                       arg not in self._values and
-                                                                       isinstance(default, (bool, float, int))])
+                self.__optimization_parameters = set()
+                for class_ in inspect.getmro(self.class_):
+                    if class_ != object and hasattr(class_, "__init__"):
+                        argspec = inspect.getargspec(class_.__init__)
+                        if argspec.defaults is not None:
+                            default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
+                            self.__optimization_parameters.update([arg for arg, default in default_args
+                                                                   if arg != "self" and
+                                                                   arg.lower().find("debug") == -1 and
+                                                                   arg.lower().find("warn") == -1 and
+                                                                   arg not in self._values and
+                                                                   isinstance(default, (bool, float, int))])
             else:
-                self.__optimization_parameters = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE).keys())
-            self.__optimization_parameters.update(self._values.keys())
+                self.__optimization_parameters = set([parameter.parameter_name for parameter in
+                                                      getattr(self.class_, PARAMETER_ATTRIBUTE)])
+            self.__optimization_parameters.update([parameter.parameter_name for parameter in self._values])
         return self.__optimization_parameters
-
 
     @property
     def parameter_space(self):
@@ -84,7 +90,7 @@ class PipelineNode(object):
         """
         if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
             # Return 1 for every parameter not set
-            space = defaultdict(lambda: 1)
+            space = set()
             parameters = self.optimization_parameters
             for class_ in inspect.getmro(self.class_):
                 if class_ != object and hasattr(class_, "__init__"):
@@ -93,26 +99,23 @@ class PipelineNode(object):
                         default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
                         for param, default in default_args:
                             if param in parameters:
-                                param = self._make_parameter_name(param)
                                 if isinstance(default, bool):
-                                    space[param] = [True, False]
+                                    # Add a boolean choice
+                                    space.add(BooleanParameter(param))
                                 elif isinstance(default, float):
-                                    space[param] = {
-                                        "type": "float",
-                                        "mu": default,
-                                        "sigma": 1
-                                    }
+                                    # Add a normal distribution
+                                    space.add(NormalParameter(param, mu=default, sigma=1))
                                 elif isinstance(default, int):
-                                    space[param] = {
-                                        "type": "int",
-                                        "mu": default,
-                                        "sigma": 1,
-                                        "q": 1,
-                                    }
+                                    # Add a Q-Normal distribution
+                                    space.add(QNormalParameter(param, mu=default, sigma=1 , q=1))
         else:
             space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE))
-        space.update(self._values)
-        return space
+        # Update with the default values
+        values = copy.copy(self._values)
+        values.update(space)
+        # Create a dictionary containing the optimization name as a key
+        return {self._make_parameter_name(parameter.parameter_name): parameter
+                for parameter in values}
 
     def as_dictionary(self):
         """
@@ -144,13 +147,6 @@ class PipelineNode(object):
             parameter=parameter
         )
 
-    def set_value(self, parameter, value):
-        if parameter in self.optimization_parameters:
-            # We need to make it a variable
-            self._values[self._make_parameter_name(parameter)] = value
-        else:
-            raise ValueError("'%s' is not a parameter of node '%s'" % (parameter, self))
-
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return other.name == self.name
@@ -160,18 +156,7 @@ class PipelineNode(object):
         return self.name
 
     def __hash__(self):
-        l = [self.name]
-        def append_from_list(list_):
-            for elem in list_:
-                if isinstance(elem, list):
-                    append_from_list(elem)
-                else:
-                    l.append(unicode(elem))
-
-        for key, value in self._values.iteritems():
-            l.append(key)
-            append_from_list(value)
-        return hash("".join(l))
+        return hash(self.name)
 
 
 class PipelineSinkNode(PipelineNode):

@@ -101,7 +101,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # otherwise the result will be stored within the same result dir
                 time.sleep(1)
 
-        # TODO: Enable usage of different backends (maybe clustering?!)
         pool = OptimizerPool()
         results = pool.imap(optimize_pipeline, _optimize())
         pool.close()
