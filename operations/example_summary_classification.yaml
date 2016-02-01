@@ -1,0 +1,15 @@
+type: classification
+input_path: example_summary_split
+optimizer: HyperoptOptimizer
+class_labels: [Standard, Target]
+main_class: Target
+max_pipeline_length: 4
+max_evaluations: 10
+source_node: FeatureVectorSourceNode
+whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]
+parameter_ranges:
+    - 
+      node: SorSvmNode
+      parameters:
+        complexity: 1
+        max_iterations: 10
