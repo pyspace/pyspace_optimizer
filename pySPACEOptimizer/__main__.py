@@ -57,8 +57,9 @@ def main(args=None):
         best_result = optimizer.optimize()
         print("Done..")
         file_ = os.path.join(os.getcwd(), "best_result.pickle")
-        pickle.dump(best_result, file_)
-        print("Best result is stored as: %s" % file_)
+        print("Best result will be stored as: %s" % file_)
+	with open(file_, "wb") as best_file:
+            pickle.dump(best_result, best_file)
 
 
 if __name__ == "__main__":
