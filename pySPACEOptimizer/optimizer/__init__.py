@@ -1,11 +1,11 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import pkg_resources
+import logging
 
 
 OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
-
-
+LOGGER = logging.getLogger(__name__)
 
 
 def list_optimizers():
@@ -27,6 +27,9 @@ def optimizer_factory(task, backend="serial"):
     :return: A new optimizer optimizing the given ``task`` using the given ``backend``.
     :rtype: R <= PySPACEOptimizer
     """
+    LOGGER.debug("Creating an optimizer for task '%s' with backend '%s'", task, backend)    
     type_ = task["optimizer"]
     for entry_point in pkg_resources.iter_entry_points(OPTIMIZER_ENTRY_POINT, type_):
+	class_ = entry_point.resolve()
+	LOGGER.debug("Using Optimizer: %s", class_)
         return entry_point.resolve()(task=task, backend=backend)

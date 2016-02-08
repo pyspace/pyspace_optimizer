@@ -7,7 +7,7 @@ def is_classification_task_node(node_name):
     return any([is_node_type(node_name, type_) for type_ in valid_node_types])
 
 
-class ClassificationTask(Task):
+class ClassificationTask(Task):    
 
     @property
     def nodes(self):

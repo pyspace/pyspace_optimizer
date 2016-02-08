@@ -8,8 +8,7 @@ max_evaluations: 10
 source_node: FeatureVectorSourceNode
 whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]
 parameter_ranges:
-    - 
-      node: SorSvmNode
+    - node: SorSvmNode
       parameters:
-        complexity: 1
-        max_iterations: 10
+          complexity: 1
+          max_iterations: 10

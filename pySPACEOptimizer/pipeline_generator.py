@@ -1,5 +1,6 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+import logging
 from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node
 
 
@@ -30,6 +31,7 @@ class PipelineGenerator(object):
         self._sink_node_inputs = configuration.nodes[self._sink_node].get_input_types()
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._configuration = configuration
+	self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     def _get_output_type(self, node_name, input_type):
         try:
@@ -43,13 +45,15 @@ class PipelineGenerator(object):
         if not pipeline:
             if self._source_node is None:
                 # Automatically select a node
+		self._logger.debug("Will select the source node automatically")
                 first_node = True
             else:
                 # Use the given node
                 pipeline.append(self._source_node)
                 input_type = self._get_output_type(self._source_node, input_type)
-
-        if len(pipeline) >= self._max_length or self._input_type not in self._nodes:
+		self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
+		
+	if len(pipeline) >= self._max_length or self._input_type not in self._nodes:
             # The pipeline get's to long or we got an input type we can't process.
             # Raise an exception.
             raise StopIteration()
@@ -59,22 +63,30 @@ class PipelineGenerator(object):
             # it's not a splitter node
             if (first_node and is_source_node(node)) or (not first_node and not is_splitter_node(node)):
                 if node not in pipeline:
+		    self._logger.debug("Appending '%s'", node)
                     pipeline.append(node)
                     try:
                         node_output = self._get_output_type(node, input_type)
                         if node_output not in self._sink_node_inputs:
+			    self._logger.debug("Using '%s' as new input type", node_output)
                             for pipeline in self._make_pipeline(pipeline, node_output):
                                 yield pipeline
                         else:
                             # Valid Pipeline, append the performance sink node, yield it,
                             # nd pop the last element for next pipeline
                             pipeline.append(self._sink_node)
+			    self._logger.debug("Valid pipeline found: '%s'", pipeline)
                             yield pipeline
                             # Pop the performance sink node
                             pipeline.pop()
-                    except Exception:
+                    except StopIteration:
                         # No valid pipeline found
-                        pass
+                        self._logger.debug("No valid pipeline found")
+			pass
+		    except Exception:
+			self._logger.exception("Exception during pipeline generation:")
+			pass
+
                     # Pop the last element
                     pipeline.pop()
 
