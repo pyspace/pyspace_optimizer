@@ -86,8 +86,11 @@ class PipelineGenerator(object):
                         if self._required_nodes.issubset(pipeline_types):
                             # All required types are in the pipeline
                             # it might work.. yield it
-                            self._logger.debug("Valid pipeline found: '%s'", pipeline)
-                            yield list(pipeline[:index + 2])
+                            result = list(pipeline[:index + 2])
+                            self._logger.debug("Valid pipeline found: '%s'", result)
+                            yield result
+                        pipeline[index + 1] = ""
+                        pipeline_types[index + 1] = ""
 
     def __iter__(self):
         # Generate all pipelines
