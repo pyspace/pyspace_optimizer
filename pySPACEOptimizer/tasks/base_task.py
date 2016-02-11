@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
-import copy
 import glob
 import os
 
@@ -10,11 +9,15 @@ import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
 
-__all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node"]
+__all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
+
+
+def get_node_type(node_name):
+    return DEFAULT_NODE_MAPPING[node_name].__module__.replace("pySPACE.missions.nodes.", "").split(".")[0]
 
 
 def is_node_type(node_name, node_type):
-    return DEFAULT_NODE_MAPPING[node_name].__module__.find("pySPACE.missions.nodes.%s" % node_type) != -1
+    return get_node_type(node_name=node_name) == node_type
 
 
 def is_source_node(node_name):
@@ -31,7 +34,7 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, optimizer, class_labels, main_class, max_pipeline_length=3, max_eval_time=60,
+    def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3, max_eval_time=60,
                  metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
                  force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
 
@@ -93,6 +96,10 @@ class Task(dict):
     def __valid_node(node_name):
         return all([not is_node_type(node_name, type_) for type_ in ["data_selection", "debug", "meta",
                                                                      "splitter", "visualization"]])
+
+    @property
+    def required_node_types(self):
+        return ["source", "sink"]
 
     @property
     def nodes(self):

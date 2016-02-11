@@ -10,6 +10,10 @@ def is_classification_task_node(node_name):
 class ClassificationTask(Task):
 
     @property
+    def required_node_types(self):
+        return ["source", "classification", "sink"]
+
+    @property
     def nodes(self):
         nodes = {}
         for node, class_ in super(ClassificationTask, self).nodes.iteritems():
