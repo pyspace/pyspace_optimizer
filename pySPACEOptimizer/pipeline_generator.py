@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import logging
-from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node, get_node_type
+from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node, is_sink_node, get_node_type
 
 
 class PipelineGenerator(object):
@@ -45,7 +45,7 @@ class PipelineGenerator(object):
         if index == 0:
             if self._source_node is None:
                 # Automatically select a node
-		        self._logger.debug("Will select the source node automatically")
+                self._logger.debug("Will select the source node automatically")
                 first_node = True
             else:
                 # Use the given node
@@ -61,7 +61,8 @@ class PipelineGenerator(object):
         for node in self._nodes[input_type]:
             # Append only if:
             # - it is the first node and it's a source node
-            # - it's not the first node and not a splitter node and the type is not contained in the pipeline
+            # - it's not the first node and not a splitter node, not a sink node
+            #   and the type is not contained in the pipeline
             if (first_node and is_source_node(node)) or (
                             not first_node and
                             not is_splitter_node(node) and
