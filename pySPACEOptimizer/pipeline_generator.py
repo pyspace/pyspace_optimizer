@@ -50,6 +50,7 @@ class PipelineGenerator(object):
             else:
                 # Use the given node
                 pipeline[index] = self._source_node
+                index += 1
                 input_type = self._get_output_type(self._source_node, input_type)
                 self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
 
