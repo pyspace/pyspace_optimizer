@@ -39,7 +39,7 @@ class PipelineGenerator(object):
         except TypeError:
             return None
 
-    def _make_pipeline(self, pipeline, input_type, pipeline_types, index):
+    def _make_pipeline(self, pipeline_array, input_type, pipeline_types, index):
         # First node has to be a "SourceNode", emitting the correct data type
         first_node = False
         if index == 0:
@@ -49,7 +49,7 @@ class PipelineGenerator(object):
                 first_node = True
             else:
                 # Use the given node
-                pipeline[index] = self._source_node
+                pipeline_array[index] = self._source_node
                 index += 1
                 input_type = self._get_output_type(self._source_node, input_type)
                 self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
@@ -57,6 +57,7 @@ class PipelineGenerator(object):
         if index == self._max_length or self._input_type not in self._nodes:
             # The pipeline get's to long or we got an input type we can't process.
             # Raise an exception.
+            self._logger.debug("\t" * index + "No valid pipeline possible! Returning..")
             raise StopIteration()
 
         for node in self._nodes[input_type]:
@@ -69,28 +70,29 @@ class PipelineGenerator(object):
                             not is_splitter_node(node) and
                             not is_sink_node(node) and
                             get_node_type(node) not in pipeline_types):
-                if node not in pipeline:
-                    self._logger.debug("Appending '%s'", node)
-                    pipeline[index] = node
+                if node not in pipeline_array:
+                    self._logger.debug("\t" * index + "Appending '%s'", node)
+                    pipeline_array[index] = node
                     pipeline_types[index] = get_node_type(node)
                     node_output = self._get_output_type(node, input_type)
                     if node_output is not None and node_output not in self._sink_node_inputs:
-                        self._logger.debug("Using '%s' as new input type", node_output)
-                        for pipeline in self._make_pipeline(pipeline, node_output, pipeline_types, index + 1):
+                        self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
+                        for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1):
                             yield pipeline
                     elif node_output is not None:
                         # Valid Pipeline, append the performance sink node
                         # and yield a list containing exactly the pipeline
-                        pipeline[index + 1] = self._sink_node
+                        pipeline_array[index + 1] = self._sink_node
                         pipeline_types[index + 1] = get_node_type(self._sink_node)
                         if self._required_nodes.issubset(pipeline_types):
                             # All required types are in the pipeline
                             # it might work.. yield it
-                            result = list(pipeline[:index + 2])
-                            self._logger.debug("Valid pipeline found: '%s'", result)
+                            result = list(pipeline_array[:index + 2])
+                            self._logger.debug("\t" * index + "Valid pipeline found: '%s'", result)
                             yield result
-                        pipeline[index + 1] = ""
-                        pipeline_types[index + 1] = ""
+                    else:
+                        self._logger.debug("\t" * index +
+                                           "Skipping node '%s' because node  get_output_type returned None" % node)
 
     def __iter__(self):
         # Generate all pipelines
