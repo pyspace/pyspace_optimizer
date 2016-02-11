@@ -74,11 +74,11 @@ class PipelineGenerator(object):
                     pipeline[index] = node
                     pipeline_types[index] = get_node_type(node)
                     node_output = self._get_output_type(node, input_type)
-                    if node_output not in self._sink_node_inputs:
+                    if node_output is not None and node_output not in self._sink_node_inputs:
                         self._logger.debug("Using '%s' as new input type", node_output)
                         for pipeline in self._make_pipeline(pipeline, node_output, pipeline_types, index + 1):
                             yield pipeline
-                    else:
+                    elif node_output is not None:
                         # Valid Pipeline, append the performance sink node
                         # and yield a list containing exactly the pipeline
                         pipeline[index + 1] = self._sink_node
