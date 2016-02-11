@@ -4,6 +4,7 @@ import numpy
 import os
 import time
 import warnings
+import logging
 import pySPACE
 
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
@@ -23,7 +24,6 @@ from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 
 MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_PORT_27017_TCP_ADDR", "localhost"),
                                                     "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
-
 
 def __minimize(spec):
     task, pipeline, backend = spec[0]
@@ -98,10 +98,13 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def __init__(self, task, backend="serial"):
         super(HyperoptOptimizer, self).__init__(task, backend)
+	self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     def optimize(self):
+	self._logger.info("Optimizing Pipelines")
         def _optimize():
             for pipeline in PipelineGenerator(self._task):
+		self._logger.debug("Generated Pipeline: %s", pipeline)
                 pipeline = Pipeline(configuration=self._task,
                                     node_chain=[self._create_node(node_name) for node_name in pipeline])
                 yield (self._task, pipeline, self._backend)
@@ -109,6 +112,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # otherwise the result will be stored within the same result dir
                 time.sleep(1)
 
+	self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
         results = pool.imap(optimize_pipeline, _optimize())
         pool.close()
@@ -116,11 +120,14 @@ class HyperoptOptimizer(PySPACEOptimizer):
         # loss, pipeline, parameters
         best = [float("inf"), None, None]
         for loss, pipeline, parameters in results:
-            if loss < best[0]:
+            self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s", pipeline, loss, parameters)
+	    if loss < best[0]:
+		self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                 best = [loss, pipeline, parameters]
 
         pool.join()
         # Return the best result
+	self._logger.info("Best result found: %s", best)
         return best
 
     def _create_node(self, node_name):

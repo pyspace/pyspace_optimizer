@@ -1,7 +1,8 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import numpy
-from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node, is_sink_node, get_node_type
+import logging
+from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_splitter_node, get_node_type
 
 
 class PipelineGenerator(object):
@@ -30,6 +31,7 @@ class PipelineGenerator(object):
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._required_nodes = set(configuration.required_node_types)
         self._configuration = configuration
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     def _get_output_type(self, node_name, input_type):
         try:
@@ -43,11 +45,13 @@ class PipelineGenerator(object):
         if index == 0:
             if self._source_node is None:
                 # Automatically select a node
+		        self._logger.debug("Will select the source node automatically")
                 first_node = True
             else:
                 # Use the given node
                 pipeline[index] = self._source_node
                 input_type = self._get_output_type(self._source_node, input_type)
+                self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
 
         if index == self._max_length or self._input_type not in self._nodes:
             # The pipeline get's to long or we got an input type we can't process.
@@ -64,10 +68,12 @@ class PipelineGenerator(object):
                             not is_sink_node(node) and
                             get_node_type(node) not in pipeline_types):
                 if node not in pipeline:
+                    self._logger.debug("Appending '%s'", node)
                     pipeline[index] = node
                     pipeline_types[index] = get_node_type(node)
                     node_output = self._get_output_type(node, input_type)
                     if node_output not in self._sink_node_inputs:
+                        self._logger.debug("Using '%s' as new input type", node_output)
                         for pipeline in self._make_pipeline(pipeline, node_output, pipeline_types, index + 1):
                             yield pipeline
                     else:
@@ -78,6 +84,7 @@ class PipelineGenerator(object):
                         if self._required_nodes.issubset(pipeline_types):
                             # All required types are in the pipeline
                             # it might work.. yield it
+                            self._logger.debug("Valid pipeline found: '%s'", pipeline)
                             yield list(pipeline[:index + 2])
 
     def __iter__(self):

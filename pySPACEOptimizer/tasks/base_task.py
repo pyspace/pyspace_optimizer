@@ -4,6 +4,8 @@ from __future__ import division
 
 import glob
 import os
+import logging
+import pprint
 
 import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
@@ -37,6 +39,8 @@ class Task(dict):
     def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3, max_eval_time=60,
                  metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
                  force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
+
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         # First do some sanity checks
         if whitelist is None:
@@ -88,6 +92,11 @@ class Task(dict):
         # and the sink node
         if not is_sink_node(sink_node):
             raise ValueError("The node '%s' is not a sink node" % sink_node)
+        self._log_task()
+
+    def _log_task(self):
+        format = pprint.pformat(self, indent=4)
+        self._logger.debug("Task '%s': " + format, self)
 
     def __str__(self):
         return "%s<%s>" % (self.__class__.__name__, self["data_set_path"])
