@@ -50,7 +50,7 @@ class PipelineGenerator(object):
             else:
                 # Use the given node
                 pipeline_array[index] = self._source_node
-		pipeline_types[index] = get_node_type(self._source_node)
+                pipeline_types[index] = get_node_type(self._source_node)
                 index += 1
                 input_type = self._get_output_type(self._source_node, input_type)
                 self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
@@ -61,6 +61,9 @@ class PipelineGenerator(object):
             self._logger.debug("\t" * index + "No valid pipeline possible! Returning..")
             raise StopIteration()
 
+        array = pipeline_array[:index + 1]
+        types = pipeline_types[:index + 1]
+
         for node in self._nodes[input_type]:
             # Append only if:
             # - it is the first node and it's a source node
@@ -70,8 +73,8 @@ class PipelineGenerator(object):
                             not first_node and
                             not is_splitter_node(node) and
                             not is_sink_node(node) and
-                            get_node_type(node) not in pipeline_types):
-                if node not in pipeline_array:
+                            get_node_type(node) not in types):
+                if node not in array:
                     self._logger.debug("\t" * index + "Appending '%s'", node)
                     pipeline_array[index] = node
                     pipeline_types[index] = get_node_type(node)
@@ -91,17 +94,18 @@ class PipelineGenerator(object):
                             result = list(pipeline_array[:index + 2])
                             self._logger.debug("\t" * index + "Valid pipeline found: '%s'", result)
                             yield result
-			else:
-			    self._logger.debug("\t" * index + "Not all types required types contained: %s", pipeline_types[:index + 2])
+                        else:
+                            self._logger.debug("\t" * index + "Not all types required types contained: %s",
+                                               pipeline_types[:index + 2])
                     else:
                         self._logger.debug("\t" * index +
                                            "Skipping node '%s' because node  get_output_type returned None" % node)
 
     def __iter__(self):
         # Generate all pipelines
-        pipeline_array = numpy.chararray(self._max_length + 1, itemsize=255)
-        pipeline_types = numpy.chararray(self._max_length + 1, itemsize=255)
-        for pipeline in self._make_pipeline(pipeline_array, self._input_type, pipeline_types, 0):
+        for pipeline in self._make_pipeline(numpy.chararray(self._max_length + 1, itemsize=255),
+                                            self._input_type,
+                                            numpy.chararray(self._max_length + 1, itemsize=255),
+                                            index=0):
             yield pipeline
         raise StopIteration()
-

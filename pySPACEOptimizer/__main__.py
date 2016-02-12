@@ -38,7 +38,7 @@ def create_parser():
     return parser
 
 
-def init_logging(config_file="pySPACEOptimizer.conf"):
+def init_logging(config_file="pySPACEOptimizer.yaml"):
     # read the config file
     if os.path.isfile(config_file):
         with open(config_file, "rb") as file_:

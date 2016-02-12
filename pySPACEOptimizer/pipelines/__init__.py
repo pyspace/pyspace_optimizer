@@ -64,7 +64,9 @@ class Pipeline(object):
             self._nodes = []
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
-        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self._logger = logging.getLogger("%s.%s@%s" % (self.__class__.__module__,
+                                                       self.__class__.__name__,
+                                                       self))
 
     @property
     def nodes(self):
