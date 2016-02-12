@@ -85,7 +85,7 @@ class Pipeline(object):
         """
         space = {}
         for node in self._nodes[1:-1]:
-            space.update(node.parameter_space)
+            space.update(node.parameter_space())
         return space
 
     def operation_spec(self, parameter_ranges=None):
@@ -148,6 +148,9 @@ class Pipeline(object):
         # Hash the resulting string
         return hash(s)
 
+    def __str__(self):
+        return "Pipeline<%s>" % hash(self)
+
     def __getstate__(self):
         return {
             "_nodes": self._nodes,
@@ -157,7 +160,7 @@ class Pipeline(object):
     def _get_logger(self):
         self._logger = logging.getLogger("%s.%s@%s" % (self.__class__.__module__,
                                                        self.__class__.__name__,
-                                                       self))
+                                                       hash(self)))
 
     def __setstate__(self, state):
         self.__dict__.update(state)

@@ -24,11 +24,22 @@ handlers:
     filename: pipeline_output.pylog
 
 loggers:
+  root:
+    level: ERROR
+    handlers:
+      - console
+
   pySPACEOptimizer:
-    level: DEBUG
+    level: INFO
     propagate: False
     handlers:
       - console
+      - file
+
+  pySPACEOptimizer.optimizer:
+    level: DEBUG
+    propagate: False
+    handlers:
       - file
 
   pySPACEOptimizer.pipelines:

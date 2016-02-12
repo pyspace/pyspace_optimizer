@@ -36,9 +36,9 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3, max_eval_time=60,
-                 metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode", whitelist=None, blacklist=None,
-                 force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
+    def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3,
+                 max_eval_time=60, metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode",
+                 whitelist=None, blacklist=None, force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -47,14 +47,14 @@ class Task(dict):
             whitelist = []
         else:
             for node in whitelist:
-                if not node in DEFAULT_NODE_MAPPING:
+                if node not in DEFAULT_NODE_MAPPING:
                     raise ValueError("'%s' from white list is not a node" % node)
 
         if node_weights is None:
             node_weights = {}
         else:
             for node, weight in node_weights.iteritems():
-                if not node in DEFAULT_NODE_MAPPING:
+                if node not in DEFAULT_NODE_MAPPING:
                     raise ValueError("'%s' from weight dict is not a node" % node)
                 elif not isinstance(weight, (int, float)) or weight < 0:
                     raise ValueError("Weight of Node '%s' from weight dict is not a positive number" % node)
@@ -95,17 +95,17 @@ class Task(dict):
         self._log_task()
 
     def _log_task(self):
-        format = pprint.pformat(self, indent=4)
-        self._logger.debug("Task '%s': " + format, self)
+        format_ = pprint.pformat(self, indent=4)
+        self._logger.debug("Task '%s': " + format_, self)
 
     def __str__(self):
         return "%s<%s>" % (self.__class__.__name__, self["data_set_path"])
 
     def __getstate__(self):
-	return {key: value for key, value in self.items()}
+        return {key: value for key, value in self.items()}
     
     def __setstate__(self, state):
-	super(Task, self).update(state)
+        super(Task, self).update(state)
 
     @staticmethod
     def __valid_node(node_name):
@@ -183,6 +183,7 @@ class Task(dict):
             return self["node_weights"][node]
         else:
             # Use the default node weight
+            # noinspection PyBroadException
             try:
                 count = 0
                 for input_type in self.nodes[node].get_input_types():
@@ -192,7 +193,7 @@ class Task(dict):
                 return 0
 
     def default_parameters(self, node):
-        #:type node: PipelineNode
+        # :type node: PipelineNode
         definitions = [parameter_range for parameter_range in self["parameter_ranges"]
                        if parameter_range["node"] == node.name]
         if definitions:

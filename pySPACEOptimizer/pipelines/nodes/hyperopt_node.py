@@ -12,10 +12,9 @@ class HyperoptNode(PipelineNode):
     def __init__(self, node_name, task):
         super(HyperoptNode, self).__init__(node_name=node_name, task=task)
 
-    @property
     def parameter_space(self):
         space = {}
-        for key, value in super(HyperoptNode, self).parameter_space.iteritems():
+        for key, value in super(HyperoptNode, self).parameter_space().iteritems():
             if isinstance(value, QUniformParameter):
                 space[key] = hp.qloguniform(key, value.min, value.max, value.q)
             elif isinstance(value, UniformParameter):

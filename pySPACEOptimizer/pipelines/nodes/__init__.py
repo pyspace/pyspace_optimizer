@@ -1,6 +1,5 @@
 import copy
 import inspect
-from collections import defaultdict
 
 from pySPACE.missions import nodes
 from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, ChoiceParameter, NormalParameter, QNormalParameter, \
@@ -76,7 +75,6 @@ class PipelineNode(object):
             self.__optimization_parameters.update([parameter.parameter_name for parameter in self._values])
         return self.__optimization_parameters
 
-    @property
     def parameter_space(self):
         """
         Returns a dictionary of all parameters of this node and their default values.
@@ -107,7 +105,7 @@ class PipelineNode(object):
                                     space.add(NormalParameter(param, mu=default, sigma=1))
                                 elif isinstance(default, int):
                                     # Add a Q-Normal distribution
-                                    space.add(QNormalParameter(param, mu=default, sigma=1 , q=1))
+                                    space.add(QNormalParameter(param, mu=default, sigma=1, q=1))
         else:
             space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE))
         # Update with the default values

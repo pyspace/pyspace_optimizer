@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import os
+import pprint
 import time
 import warnings
 import logging
@@ -30,6 +31,7 @@ def __minimize(spec):
     task, pipeline, backend = spec[0]
     logger = logging.getLogger(__name__)
     parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
+    logger.info("Executing Pipeline '%s' with Parameters '%s'", pipeline, pprint.pformat(parameter_ranges, indent=4))
     try:
         with warnings.catch_warnings():
             # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
@@ -86,7 +88,8 @@ def optimize_pipeline(args):
         # Replace indexes of choice parameters with the selected values
         new_pipeline_space = {}
         for node in pipeline.nodes:
-            new_pipeline_space.update(super(type(node), node).parameter_space)
+            new_pipeline_space.update(PipelineNode.parameter_space(node))
+
         for key, value in best.iteritems():
             if isinstance(new_pipeline_space[key], ChoiceParameter):
                 best[key] = new_pipeline_space[key].choices[value]
@@ -104,7 +107,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     
     def _generate_pipelines(self):
         for pipeline in PipelineGenerator(self._task):
-            self._logger.debug("Generated Pipeline: %s", pipeline)
+            self._logger.debug("Testing Pipeline: %s", pipeline)
             pipeline = Pipeline(configuration=self._task,
                                 node_chain=[self._create_node(node_name) for node_name in pipeline])
             yield (self._task, pipeline, self._backend)
@@ -122,10 +125,11 @@ class HyperoptOptimizer(PySPACEOptimizer):
         # loss, pipeline, parameters
         best = [float("inf"), None, None]
         for loss, pipeline, parameters in results:
-            self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s", pipeline, loss, parameters)
-        if loss < best[0]:
-            self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
-            best = [loss, pipeline, parameters]
+            self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s",
+                               pipeline, loss, parameters)
+            if loss < best[0]:
+                self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
+                best = [loss, pipeline, parameters]
 
         pool.join()
         # Return the best result
@@ -142,17 +146,16 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
-   def optimize(self):
+    def optimize(self):
         self._logger.info("Optimizing Pipelines")
-        self._logger.debug("Creating optimization pool")
-        best = [None, float("inf")]
+        best = [float("inf"), None, None]
         
         for args in self._generate_pipelines():
             loss, pipeline, parameters = optimize_pipeline(args)
             self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
             if loss < best[0]:
                 self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
-                best = [params, loss]
+                best = [loss, pipeline, parameters]
 
         self._logger.info("Best result found: %s", best)
         return best

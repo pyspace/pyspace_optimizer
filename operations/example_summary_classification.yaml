@@ -4,7 +4,7 @@ optimizer: SerialHyperoptOptimizer
 class_labels: [Standard, Target]
 main_class: Target
 max_pipeline_length: 4
-max_evaluations: 10
+max_evaluations: 2
 source_node: FeatureVectorSourceNode
 whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]
 parameter_ranges:
