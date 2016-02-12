@@ -101,6 +101,12 @@ class Task(dict):
     def __str__(self):
         return "%s<%s>" % (self.__class__.__name__, self["data_set_path"])
 
+    def __getstate__(self):
+	return {key: value for key, value in self.items()}
+    
+    def __setstate__(self, state):
+	super(Task, self).update(state)
+
     @staticmethod
     def __valid_node(node_name):
         return all([not is_node_type(node_name, type_) for type_ in ["data_selection", "debug", "meta",

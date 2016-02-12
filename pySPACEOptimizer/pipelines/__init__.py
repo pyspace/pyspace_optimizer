@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 import copy
 import yaml
+import logging
+import sys
 
 import pySPACE
 from pySPACEOptimizer.pipelines.nodes import PipelineNode
@@ -11,6 +13,34 @@ try:
     from yaml import CDumper as Dumper
 except ImportError:
     from yaml import Dumper
+
+
+class OutputLogger(object):
+    class Redirecter(object):
+        def __init__(self, logger, loglevel):
+            self.__logger = logger
+            self.__loglevel = loglevel
+
+        def flush(self):
+            pass
+
+        def write(self, message):
+            self.__logger.log(self.__loglevel, message)
+
+    def __init__(self, logger):
+        self._logger = logger
+        self.__old_stdout = None
+        self.__old_stderr = None
+
+    def __enter__(self):
+        self.__old_stdout = sys.stdout
+        self.__old_stderr = sys.stderr
+        sys.stderr = self.Redirecter(self._logger, logging.WARNING)
+        sys.stdout = self.Redirecter(self._logger, logging.INFO)
+
+    def __exit__(self, *args, **kwargs):
+        sys.sterr = self.__old_stderr
+        sys.stdout = self.__old_stdout
 
 
 class Pipeline(object):
@@ -34,6 +64,7 @@ class Pipeline(object):
             self._nodes = []
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     @property
     def nodes(self):
@@ -96,9 +127,10 @@ class Pipeline(object):
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
-        backend = pySPACE.create_backend(backend)
-        operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
-        return pySPACE.run_operation(backend, operation)
+        with OutputLogger(self._logger):
+            backend = pySPACE.create_backend(backend)
+            operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
+            return pySPACE.run_operation(backend, operation)
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
@@ -113,3 +145,14 @@ class Pipeline(object):
         s = "".join([unicode(hash(node)) for node in self.nodes])
         # Hash the resulting string
         return hash(s)
+
+    def __getstate__(self):
+        return {
+            "_nodes": self._nodes,
+            "_configuration": self._configuration,
+            "_input_path": self._input_path}
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+

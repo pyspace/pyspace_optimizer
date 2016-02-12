@@ -25,8 +25,10 @@ from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_PORT_27017_TCP_ADDR", "localhost"),
                                                     "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
 
+
 def __minimize(spec):
     task, pipeline, backend = spec[0]
+    logger = logging.getLogger(__name__)
     parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
     try:
         with warnings.catch_warnings():
@@ -42,6 +44,7 @@ def __minimize(spec):
             "status": STATUS_OK
         }
     except Exception:
+        logger.exception("Error in Pipeline '%s':", pipeline)
         return {
             "loss": float("inf"),
             "status": STATUS_FAIL
@@ -69,7 +72,6 @@ def optimize_pipeline(args):
     connection = task["mongodb_connection"] if "mongodb_connection" in task else MONGODB_CONNECTION
     # Store each pipeline in it's own db
     connection += "/%s" % hash(pipeline)
-    # TODO: Enable usage of different backends (maybe clustering?!)
     worker = WorkerProcess(connection, workdir=pySPACE.configuration.storage)
     try:
         # Start the worker
@@ -98,36 +100,36 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def __init__(self, task, backend="serial"):
         super(HyperoptOptimizer, self).__init__(task, backend)
-	self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+    
+    def _generate_pipelines(self):
+        for pipeline in PipelineGenerator(self._task):
+            self._logger.debug("Generated Pipeline: %s", pipeline)
+            pipeline = Pipeline(configuration=self._task,
+                                node_chain=[self._create_node(node_name) for node_name in pipeline])
+            yield (self._task, pipeline, self._backend)
+            # We need to wait at least one second before yielding the next pipeline
+            # otherwise the result will be stored within the same result dir
+            time.sleep(1)
 
     def optimize(self):
-	self._logger.info("Optimizing Pipelines")
-        def _optimize():
-            for pipeline in PipelineGenerator(self._task):
-		self._logger.debug("Generated Pipeline: %s", pipeline)
-                pipeline = Pipeline(configuration=self._task,
-                                    node_chain=[self._create_node(node_name) for node_name in pipeline])
-                yield (self._task, pipeline, self._backend)
-                # We need to wait at least one second before yielding the next pipeline
-                # otherwise the result will be stored within the same result dir
-                time.sleep(1)
-
-	self._logger.debug("Creating optimization pool")
+        self._logger.info("Optimizing Pipelines")
+        self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
-        results = pool.imap(optimize_pipeline, _optimize())
+        results = pool.imap(optimize_pipeline, self._generate_pipelines())
         pool.close()
 
         # loss, pipeline, parameters
         best = [float("inf"), None, None]
         for loss, pipeline, parameters in results:
             self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s", pipeline, loss, parameters)
-	    if loss < best[0]:
-		self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
-                best = [loss, pipeline, parameters]
+        if loss < best[0]:
+            self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
+            best = [loss, pipeline, parameters]
 
         pool.join()
         # Return the best result
-	self._logger.info("Best result found: %s", best)
+        self._logger.info("Best result found: %s", best)
         return best
 
     def _create_node(self, node_name):
@@ -141,19 +143,16 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
    def optimize(self):
-        def _optimize():
-            for pipeline in PipelineGenerator(self._task):
-                pipeline = Pipeline(configuration=self._task,
-                                    node_chain=[self._create_node(node_name) for node_name in pipeline])
-                yield (self._task, pipeline, self._backend)
-
-        results = []
-        for args in _optimize():
-            results.append(optimize_pipeline(args))
-
+        self._logger.info("Optimizing Pipelines")
+        self._logger.debug("Creating optimization pool")
         best = [None, float("inf")]
-        for params, loss in results:
-            if loss < best[1]:
+        
+        for args in self._generate_pipelines():
+            loss, pipeline, parameters = optimize_pipeline(args)
+            self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
+            if loss < best[0]:
+                self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                 best = [params, loss]
 
-        return best[0]
+        self._logger.info("Best result found: %s", best)
+        return best
