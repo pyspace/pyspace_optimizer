@@ -38,6 +38,7 @@ class OutputLogger(object):
         sys.stderr = self.Redirecter(self._logger, logging.WARNING)
         sys.stdout = self.Redirecter(self._logger, logging.INFO)
 
+    # noinspection PyUnusedLocal
     def __exit__(self, *args, **kwargs):
         sys.sterr = self.__old_stderr
         sys.stdout = self.__old_stdout
@@ -64,9 +65,8 @@ class Pipeline(object):
             self._nodes = []
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
-        self._logger = logging.getLogger("%s.%s@%s" % (self.__class__.__module__,
-                                                       self.__class__.__name__,
-                                                       self))
+        self._logger = None
+        self._get_logger()
 
     @property
     def nodes(self):
@@ -137,7 +137,7 @@ class Pipeline(object):
     def __eq__(self, other):
         if hasattr(other, "nodes"):
             for node in self.nodes:
-                if not node in other.nodes:
+                if node not in other.nodes:
                     return False
             return True
         return False
@@ -154,7 +154,11 @@ class Pipeline(object):
             "_configuration": self._configuration,
             "_input_path": self._input_path}
 
+    def _get_logger(self):
+        self._logger = logging.getLogger("%s.%s@%s" % (self.__class__.__module__,
+                                                       self.__class__.__name__,
+                                                       self))
+
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-
+        self._get_logger()
