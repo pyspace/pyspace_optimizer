@@ -14,7 +14,7 @@ syn match messageMatch '.\+' contained skipnl
 
 " Date and Level region
 syn region dateLevelRegion start='\[' end='\]' contains=dateMatch,levelMatch nextgroup=nameRegion
-syn match dateMatch '\d\{2}.\d\{2}.\d\{4}.\d\{3}' contained nextgroup=levelMatch
+syn match dateMatch '\d\{2}.\d\{2}.\d\{4}\s\d{2}:\d{2}:\d{2}.\d\{3}' contained nextgroup=levelMatch
 syn match levelMatch ':\s\+\w\+' contained
 
 " Logger name
