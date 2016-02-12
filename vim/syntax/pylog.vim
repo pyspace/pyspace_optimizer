@@ -13,8 +13,9 @@ syn region messageRegion start=" " end=/$/ contained contains=messageMatch
 syn match messageMatch '.\+' contained skipnl
 
 " Date and Level region
-syn region dateLevelRegion start='\[' end='\]' contains=dateMatch,levelMatch nextgroup=nameRegion
-syn match dateMatch '\d\{2}.\d\{2}.\d\{4}\s\d{2}:\d{2}:\d{2}.\d\{3}' contained nextgroup=levelMatch
+syn region dateLevelRegion start='\[' end='\]' contains=dateMatch,timeMatch,levelMatch nextgroup=nameRegion
+syn match dateMatch '\d\{2}.\d\{2}.\d\{4}' contained nextgroup=timeMatch skipwhite
+syn match timeMatch '\d\d:\d\d:\d\d.\d\d\d' contained nextgroup=levelMatch
 syn match levelMatch ':\s\+\w\+' contained
 
 " Logger name
@@ -26,5 +27,6 @@ let b:current_syntax = "pylog"
 
 hi def link levelMatch   Type
 hi def link dateMatch    Constant
+hi def link timeMatch	 Constant
 hi def link nameMatch    Comment
 hi def link messageMatch Statement

@@ -22,13 +22,15 @@ handlers:
     formatter: file_formatter
     level: DEBUG
     filename: pipeline_output.pylog
+  null_handler:
+    class: logging.NullHandler
+    level: ERROR
 
 loggers:
   '':
     level: ERROR
     handlers:
-      - console
-      - file
+      - null_handler
 
   pySPACEOptimizer:
     level: INFO
