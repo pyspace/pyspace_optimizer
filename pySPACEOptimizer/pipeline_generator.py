@@ -84,6 +84,7 @@ class PipelineGenerator(object):
                         # and yield a list containing exactly the pipeline
                         pipeline_array[index + 1] = self._sink_node
                         pipeline_types[index + 1] = get_node_type(self._sink_node)
+                        result = list(pipeline[:index + 2])
                         if self._required_nodes.issubset(pipeline_types):
                             # All required types are in the pipeline
                             # it might work.. yield it
@@ -101,3 +102,4 @@ class PipelineGenerator(object):
         for pipeline in self._make_pipeline(pipeline_array, self._input_type, pipeline_types, 0):
             yield pipeline
         raise StopIteration()
+
