@@ -24,10 +24,11 @@ handlers:
     filename: pipeline_output.pylog
 
 loggers:
-  root:
+  '':
     level: ERROR
     handlers:
       - console
+      - file
 
   pySPACEOptimizer:
     level: INFO
