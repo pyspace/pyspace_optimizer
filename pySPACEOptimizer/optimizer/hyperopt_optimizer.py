@@ -38,7 +38,7 @@ def __minimize(spec):
             warnings.simplefilter("ignore")
             result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
         results = os.path.join(result_path, "results.csv")
-        if os.path.is_file(results):
+        if os.path.isfile(results):
             summary = PerformanceResultSummary.from_csv(results)
             # Calculate the mean of all data sets using the given metric
             mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
@@ -80,19 +80,21 @@ class WorkerProcess(Process):
 def optimize_pipeline(args):
     task, pipeline, _ = args
     pipeline_space = [args, pipeline.pipeline_space]
+    max_evals = task["max_evaluations"] if "max_evaluations" in task else 100
     connection = task["mongodb_connection"] if "mongodb_connection" in task else MONGODB_CONNECTION
     # Store each pipeline in it's own db
     connection += "/%s" % hash(pipeline)
-    worker = WorkerProcess(connection, workdir=pySPACE.configuration.storage)
+    workers = [WorkerProcess(connection, workdir=pySPACE.configuration.storage) for _ in range(max_evals)]
     try:
-        # Start the worker
-        worker.start()
+        # Start the workers
+        for worker in workers:
+            worker.start()
         # Run the minimizer
         trials = MongoTrials(connection + "/jobs")
         best = fmin(fn=__minimize,
                     space=pipeline_space,
                     algo=task["suggestion_algorithm"] if "suggestion_algorithm" in task else tpe.suggest,
-                    max_evals=task["max_evaluations"] if "max_evaluations" in task else 100,
+                    max_evals=max_evals,
                     trials=trials)
         # Replace indexes of choice parameters with the selected values
         new_pipeline_space = {}
@@ -104,14 +106,15 @@ def optimize_pipeline(args):
                 best[key] = new_pipeline_space[key].choices[value]
         return trials.best_trial["result"]["loss"], pipeline, best
     finally:
-        worker.terminate()
-        worker.join()
+        for worker in workers:
+            worker.terminate()
+            worker.join()
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
 
-    def __init__(self, task, backend="serial"):
-        super(HyperoptOptimizer, self).__init__(task, backend)
+    def __init__(self, task, backend, best_result_file):
+        super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
     
     def _generate_pipelines(self):
@@ -139,6 +142,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
             if loss < best[0]:
                 self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                 best = [loss, pipeline, parameters]
+                self.store_best_result(best_result=best)
 
         pool.join()
         # Return the best result
@@ -165,6 +169,7 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
             if loss < best[0]:
                 self._logger.debug("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                 best = [loss, pipeline, parameters]
+                self.store_best_result(best_result=best)
 
         self._logger.info("Best result found: %s", best)
         return best
