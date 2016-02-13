@@ -37,14 +37,16 @@ def __minimize(spec):
             # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
             warnings.simplefilter("ignore")
             result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
-        results = os.path.join(result_path, "results.csv")
-        if os.path.isfile(results):
-            summary = PerformanceResultSummary.from_csv(results)
+        if os.path.isdir(result_path):
+            summary = PerformanceResultSummary(dataset_dir=result_path)
             # Calculate the mean of all data sets using the given metric
-            mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
+            if task["summary"] not in summary.get_metrics():
+                raise ValueError("Metric '%s' not found in result dataset")
+
+            mean = numpy.mean(numpy.asarray(summary.get_parameter_values(task["summary"]),
+                                            dtype=numpy.float))
             return {
-                "loss": -1 * mean if "is_performance_metric" in task and
-                                     task["is_performance_metric"] else mean,
+                "loss": -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean,
                 "status": STATUS_OK
             }
         else:
