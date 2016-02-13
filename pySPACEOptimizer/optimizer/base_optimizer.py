@@ -1,6 +1,10 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import abc
+try:
+    from cPickle import dump
+except ImportError:
+    from pickle import dump
 
 
 __all__ = ["PySPACEOptimizer", "NoPipelineFound"]
@@ -23,9 +27,13 @@ class PySPACEOptimizer(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, task, backend="serial"):
+    def __init__(self, task, backend="serial", best_result_file="best_result.pickle"):
         self._task = task
         self._backend = backend
+        self._best_result = best_result_file
+
+    def store_best_result(self, best_result):
+        dump(best_result, self._best_result)
 
     @abc.abstractmethod
     def optimize(self):

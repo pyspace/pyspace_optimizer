@@ -11,12 +11,6 @@ import pySPACE
 from pySPACEOptimizer.optimizer import optimizer_factory, list_optimizers
 from pySPACEOptimizer.tasks import task_from_yaml, list_tasks
 
-try:
-    # noinspection PyPep8Naming
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 
 def create_parser():
     parser = ArgumentParser(description="Launch the optimization of the given task using the given backend",
@@ -75,12 +69,12 @@ def main(args=None):
         # Get the logger
         logger = logging.getLogger("pySPACEOptimizer")
         logger.info("Start optimization..")
+        logger.info("Best result will be stored as: %s" % arguments.result.name)
         task = task_from_yaml(arguments.task)
-        optimizer = optimizer_factory(task, arguments.backend)
+        optimizer = optimizer_factory(task, arguments.backend, arguments.result)
         best_result = optimizer.optimize()
         logger.info("Done..")
-        logger.info("Best result will be stored as: %s" % arguments.result.name)
-        pickle.dump(best_result, arguments.result)
+        logger.info("Best result found: %s", best_result)
 
 
 if __name__ == "__main__":
