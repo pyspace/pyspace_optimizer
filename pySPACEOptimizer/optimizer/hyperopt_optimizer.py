@@ -37,14 +37,23 @@ def __minimize(spec):
             # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
             warnings.simplefilter("ignore")
             result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
-        summary = PerformanceResultSummary.from_csv(os.path.join(result_path, "results.csv"))
-        # Calculate the mean of all data sets using the given metric
-        mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
-        return {
-            "loss": -1 * mean if "is_performance_metric" in task and
-                                 task["is_performance_metric"] else mean,
-            "status": STATUS_OK
-        }
+        results = os.path.join(result_path, "results.csv")
+        if os.path.is_file(results):
+            summary = PerformanceResultSummary.from_csv(results)
+            # Calculate the mean of all data sets using the given metric
+            mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
+            return {
+                "loss": -1 * mean if "is_performance_metric" in task and
+                                     task["is_performance_metric"] else mean,
+                "status": STATUS_OK
+            }
+        else:
+            logger.warning("No results found for Pipeline '%s'. "
+                           "Returning infinite loss and failed state", pipeline)
+            return {
+                "loss": float("inf"),
+                "status": STATUS_FAIL
+            }   
     except Exception:
         logger.exception("Error in Pipeline '%s':", pipeline)
         return {
