@@ -40,9 +40,10 @@ loggers:
       - file
 
   pySPACEOptimizer.optimizer:
-    level: DEBUG
+    level: INFO
     propagate: False
-    handlers:
+    handlers
+      - console
       - file
 
   pySPACEOptimizer.pipelines:

@@ -73,7 +73,7 @@ def main(args=None):
         task = task_from_yaml(arguments.task)
         optimizer = optimizer_factory(task, arguments.backend, arguments.result)
         best_result = optimizer.optimize()
-        logger.info("Done..")
+        logger.info("Done!")
         logger.info("Best result found: %s", best_result)
 
 
