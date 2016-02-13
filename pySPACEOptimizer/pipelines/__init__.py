@@ -132,7 +132,8 @@ class Pipeline(object):
         with OutputLogger(self._logger):
             backend = pySPACE.create_backend(backend)
             operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
-            return pySPACE.run_operation(backend, operation)
+            pySPACE.run_operation(backend, operation)
+            return operation.get_output_directory()
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
