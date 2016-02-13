@@ -40,10 +40,10 @@ def __minimize(spec):
         if os.path.isdir(result_path):
             summary = PerformanceResultSummary(dataset_dir=result_path)
             # Calculate the mean of all data sets using the given metric
-            if task["summary"] not in summary.get_metrics():
-                raise ValueError("Metric '%s' not found in result dataset")
+            if task["metric"] not in summary.get_metrics():
+                raise ValueError("Metric '%s' not found in result dataset" % task["metric"])
 
-            mean = numpy.mean(numpy.asarray(summary.get_parameter_values(task["summary"]),
+            mean = numpy.mean(numpy.asarray(summary.get_parameter_values(task["metric"]),
                                             dtype=numpy.float))
             return {
                 "loss": -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean,
