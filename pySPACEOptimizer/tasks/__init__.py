@@ -12,6 +12,9 @@ TASK_ENTRY_POINT = "pySPACEOptimizer.tasks"
 
 
 def task_from_yaml(stream):
+    """
+    :rtype: T <= Task
+    """
     description = yaml.load(stream, Loader=Loader)
     return task_factory(description)
 

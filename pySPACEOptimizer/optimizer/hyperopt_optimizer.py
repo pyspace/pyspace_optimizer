@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 import numpy
 import os
-import pprint
 import time
 import warnings
 import logging
 import pySPACE
 
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
-from hyperopt.mongoexp import MongoTrials, MongoJobs, MongoWorker
+from hyperopt.mongoexp import MongoTrials, MongoJobs, MongoWorker, ReserveTimeout
 
 from base_optimizer import PySPACEOptimizer
 from optimizer_pool import OptimizerPool
@@ -27,42 +26,6 @@ MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_POR
                                                     "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
 
 
-def __minimize(spec):
-    task, pipeline, backend = spec[0]
-    logger = logging.getLogger(__name__)
-    parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
-    try:
-        with warnings.catch_warnings():
-            # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
-            warnings.simplefilter("ignore")
-            result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
-        if os.path.isdir(result_path):
-            summary = PerformanceResultSummary(dataset_dir=result_path)
-            # Calculate the mean of all data sets using the given metric
-            if task["metric"] not in summary.get_metrics():
-                raise ValueError("Metric '%s' not found in result dataset" % task["metric"])
-
-            mean = numpy.mean(numpy.asarray(summary.get_parameter_values(task["metric"]),
-                                            dtype=numpy.float))
-            return {
-                "loss": -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean,
-                "status": STATUS_OK
-            }
-        else:
-            logger.warning("No results found for Pipeline '%s'. "
-                           "Returning infinite loss and failed state", pipeline)
-            return {
-                "loss": float("inf"),
-                "status": STATUS_FAIL
-            }   
-    except Exception:
-        logger.exception("Error in Pipeline '%s':", pipeline)
-        return {
-            "loss": float("inf"),
-            "status": STATUS_FAIL
-        }
-
-
 class WorkerProcess(Process):
 
     def __init__(self, mongodb_connection, exp_key=None, workdir=None):
@@ -74,8 +37,47 @@ class WorkerProcess(Process):
     def run(self):
         mj = MongoJobs.new_from_connection_str(self.__connection + '/jobs')
         mworker = MongoWorker(mj, exp_key=self.__key, workdir=self.__workdir)
-        while True:
-            mworker.run_one()
+        try:
+            mworker.run_one(erase_created_workdir=True)
+        except ReserveTimeout:
+            pass
+
+
+def __minimize(spec):
+    task, pipeline, backend = spec[0]
+    logger = logging.getLogger(__name__)
+    parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
+    # noinspection PyBroadException
+    try:
+        with warnings.catch_warnings():
+            # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
+            warnings.simplefilter("ignore")
+            result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
+        if os.path.isdir(result_path):
+            summary = PerformanceResultSummary(dataset_dir=result_path)
+            # Calculate the mean of all data sets using the given metric
+            if task["metric"] not in summary.get_metrics():
+                raise ValueError("Metric '%s' not found in result dataset" % task["metric"])
+
+            mean = numpy.mean(numpy.asarray(list(summary.get_parameter_values(task["metric"])),
+                                            dtype=numpy.float))
+            return {
+                "loss": -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean,
+                "status": STATUS_OK
+            }
+        else:
+            logger.error("No results found for Pipeline '%s'. "
+                         "Returning infinite loss and failed state", pipeline)
+            return {
+                "loss": float("inf"),
+                "status": STATUS_FAIL
+            }
+    except Exception:
+        logger.exception("Error in Pipeline '%s':", pipeline)
+        return {
+            "loss": float("inf"),
+            "status": STATUS_FAIL
+        }
 
 
 def optimize_pipeline(args):
@@ -96,7 +98,8 @@ def optimize_pipeline(args):
                     space=pipeline_space,
                     algo=task["suggestion_algorithm"] if "suggestion_algorithm" in task else tpe.suggest,
                     max_evals=max_evals,
-                    trials=trials)
+                    trials=trials,
+                    rseed=int(time.time()))
         # Replace indexes of choice parameters with the selected values
         new_pipeline_space = {}
         for node in pipeline.nodes:
@@ -117,7 +120,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def __init__(self, task, backend, best_result_file):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-    
+
     def _generate_pipelines(self):
         for pipeline in PipelineGenerator(self._task):
             self._logger.debug("Testing Pipeline: %s", pipeline)
@@ -144,11 +147,10 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 if loss < best[0]:
                     self._logger.info("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                     best = [loss, pipeline, parameters]
-                    self.store_best_result(best_result=best)
+                    self.store_best_result(best_pipeline=pipeline,
+                                           best_parameters=parameters)
         finally:
             pool.join()
-        # Return the best result
-        self._logger.info("Best result found: %s", best)
         return best
 
     def _create_node(self, node_name):
@@ -164,14 +166,12 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
     def optimize(self):
         self._logger.info("Optimizing Pipelines")
         best = [float("inf"), None, None]
-        
+
         for args in self._generate_pipelines():
             loss, pipeline, parameters = optimize_pipeline(args)
             self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
             if loss < best[0]:
                 self._logger.info("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
                 best = [loss, pipeline, parameters]
-                self.store_best_result(best_result=best)
-
-        self._logger.info("Best result found: %s", best)
+                self.store_best_result(best_pipeline=pipeline, best_parameters=parameters)
         return best

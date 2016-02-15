@@ -12,6 +12,9 @@ from pySPACEOptimizer.optimizer import optimizer_factory, list_optimizers
 from pySPACEOptimizer.tasks import task_from_yaml, list_tasks
 
 
+HOME = os.path.expanduser("~")
+
+
 def create_parser():
     parser = ArgumentParser(description="Launch the optimization of the given task using the given backend",
                             usage="%(prog)s -c CONFIG [-h | --list-optimizer | --list-tasks]\n"
@@ -20,7 +23,8 @@ def create_parser():
                         default="config.yaml")
     parser.add_argument("-t", "--task", type=FileType("rb"),
                         help="The path to a task description in YAML format")
-    parser.add_argument("-r", "--result", type=FileType("wb"), default="best_result.pickle",
+    parser.add_argument("-r", "--result", type=FileType("wb"),
+                        default=None,
                         help="The name of the file to store the result into")
     parser.add_argument("-b", "--backend", type=str, default="serial",
                         help='The backend to use for testing in pySPACE. '
@@ -39,6 +43,8 @@ def init_logging(config_file="pySPACEOptimizer.yaml"):
             config = yaml.load(file_)
         # init the logging
         logging.config.dictConfig(config)
+        # Capture warnings
+        logging.captureWarnings(True)
 
 
 def main(args=None):
@@ -46,7 +52,7 @@ def main(args=None):
         args = sys.argv[1:]
     parser = create_parser()
     arguments = parser.parse_args(args)
-    
+
     # Load the configuration
     old_stdout = sys.stdout
     try:
@@ -68,13 +74,23 @@ def main(args=None):
         init_logging()
         # Get the logger
         logger = logging.getLogger("pySPACEOptimizer")
-        logger.info("Start optimization..")
-        logger.info("Best result will be stored as: %s" % arguments.result.name)
-        task = task_from_yaml(arguments.task)
-        optimizer = optimizer_factory(task, arguments.backend, arguments.result)
-        best_result = optimizer.optimize()
-        logger.info("Done!")
-        logger.info("Best result found: %s", best_result)
+        # noinspection PyBroadException
+        try:
+            logger.info("Start optimization..")
+            task = task_from_yaml(arguments.task)
+            if arguments.result is None:
+                arguments.result = open("%s/pySPACEcenter/specs/operations/%s_best.yaml" % (
+                    HOME, task["data_set_path"]), mode="wb")
+            logger.info("Best result will be stored as: %s" % arguments.result.name)
+
+            optimizer = optimizer_factory(task, arguments.backend, arguments.result)
+            best_result = optimizer.optimize()
+            logger.info("Done!")
+            logger.info("Best result found: %s", best_result)
+        except Exception:
+            logger.exception("Error!")
+        finally:
+            logging.shutdown()
 
 
 if __name__ == "__main__":

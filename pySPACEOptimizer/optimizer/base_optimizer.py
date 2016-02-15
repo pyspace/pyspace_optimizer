@@ -1,10 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import abc
-try:
-    from cPickle import dump
-except ImportError:
-    from pickle import dump
+from pySPACEOptimizer.pipelines import Pipeline
 
 
 __all__ = ["PySPACEOptimizer", "NoPipelineFound"]
@@ -27,13 +24,26 @@ class PySPACEOptimizer(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, task, backend="serial", best_result_file="best_result.pickle"):
+    def __init__(self, task, backend, best_result_file):
+        """
+        :type task: Task
+        :type backend: str
+        :type best_result_file: File
+        """
         self._task = task
         self._backend = backend
         self._best_result = best_result_file
 
-    def store_best_result(self, best_result):
-        dump(best_result, self._best_result)
+    def store_best_result(self, best_pipeline, best_parameters):
+        """
+        :type best_pipeline: Pipeline
+        :type best_parameters: dict[str, list[object]]
+        """
+        operation_spec = best_pipeline.operation_spec(best_parameters)
+        # Reset the file cursor
+        self._best_result.seek(0)
+        # Write the result to the object
+        self._best_result.write(operation_spec["base_file"])
 
     @abc.abstractmethod
     def optimize(self):

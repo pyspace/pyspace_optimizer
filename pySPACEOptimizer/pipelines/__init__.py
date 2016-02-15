@@ -10,12 +10,12 @@ from pySPACEOptimizer.pipelines.nodes import PipelineNode
 from pySPACEOptimizer.tasks.base_task import Task
 
 try:
-    from yaml import CDumper as Dumper
+    from yaml import CSafeDumper as Dumper
 except ImportError:
-    from yaml import Dumper
+    from yaml import SafeDumper as Dumper
 
 
-class OutputLogger(object):
+class output_logger(object):
     class Redirecter(object):
         def __init__(self, logger, loglevel):
             self.__logger = logger
@@ -25,7 +25,11 @@ class OutputLogger(object):
             pass
 
         def write(self, message):
-            self.__logger.log(self.__loglevel, message)
+            # redirect "Operation progress: ..." output to INFO level
+            if self.__loglevel != logging.INFO and message.lower().find("operation progress:") != -1:
+                self.__logger.info(message)
+            else:
+                self.__logger.log(self.__loglevel, message)
 
     def __init__(self, logger):
         self._logger = logger
@@ -35,7 +39,7 @@ class OutputLogger(object):
     def __enter__(self):
         self.__old_stdout = sys.stdout
         self.__old_stderr = sys.stderr
-        sys.stderr = self.Redirecter(self._logger, logging.WARNING)
+        sys.stderr = self.Redirecter(self._logger, logging.ERROR)
         sys.stdout = self.Redirecter(self._logger, logging.INFO)
 
     # noinspection PyUnusedLocal
@@ -65,8 +69,8 @@ class Pipeline(object):
             self._nodes = []
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
-        self._logger = None
-        self._get_logger()
+        self._logger = self._get_logger()
+        self._logger.info("Pipeline {object!s} is {object!r}".format(object=self))
 
     @property
     def nodes(self):
@@ -129,7 +133,7 @@ class Pipeline(object):
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
-        with OutputLogger(self._logger):
+        with output_logger(self._logger):
             backend = pySPACE.create_backend(backend)
             operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
             pySPACE.run_operation(backend, operation)
@@ -146,11 +150,20 @@ class Pipeline(object):
     def __hash__(self):
         # Hash all nodes and concat them to a string
         s = "".join([unicode(hash(node)) for node in self.nodes])
+        # Also append the input_path as it is important for performance
+        s += self._input_path
         # Hash the resulting string
         return hash(s)
 
+    def __repr__(self):
+        r = "["
+        r += ",".join([repr(node) for node in self._nodes])
+        r += "]"
+        r += "@{input!s}".format(input=self._input_path)
+        return r
+
     def __str__(self):
-        return "Pipeline<%s>" % hash(self)
+        return "Pipeline<{hash!s}>".format(hash=hash(self))
 
     def __getstate__(self):
         return {
@@ -159,10 +172,9 @@ class Pipeline(object):
             "_input_path": self._input_path}
 
     def _get_logger(self):
-        self._logger = logging.getLogger("%s.%s@%s" % (self.__class__.__module__,
-                                                       self.__class__.__name__,
-                                                       hash(self)))
+        return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__,
+                                                                    object=self))
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self._get_logger()
+        self._logger = self._get_logger()
