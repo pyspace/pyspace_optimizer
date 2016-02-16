@@ -69,7 +69,7 @@ class Pipeline(object):
             self._nodes = []
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
-        self._logger = self._get_logger()
+        self._logger = self.get_logger()
         self._logger.info("Pipeline {object!s} is {object!r}".format(object=self))
 
     @property
@@ -133,11 +133,15 @@ class Pipeline(object):
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
-        with output_logger(self._logger):
-            backend = pySPACE.create_backend(backend)
-            operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
-            pySPACE.run_operation(backend, operation)
-            return operation.get_output_directory()
+        try:
+            with output_logger(self._logger):
+                backend = pySPACE.create_backend(backend)
+                operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
+                pySPACE.run_operation(backend, operation)
+                return operation.get_output_directory()
+        except:
+            self._logger.exception("Error in '%s':", self)
+            return None
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
@@ -171,10 +175,10 @@ class Pipeline(object):
             "_configuration": self._configuration,
             "_input_path": self._input_path}
 
-    def _get_logger(self):
+    def get_logger(self):
         return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__,
                                                                     object=self))
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self._logger = self._get_logger()
+        self._logger = self.get_logger()

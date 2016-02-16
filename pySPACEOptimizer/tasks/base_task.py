@@ -98,12 +98,18 @@ class Task(dict):
         format_ = pprint.pformat(self, indent=4)
         self._logger.debug("Task '%s': " + format_, self)
 
+    def __getitem__(self, item):
+        if item in self:
+            return super(Task, self).__getitem__(item)
+        else:
+            return None
+
     def __str__(self):
         return "%s<%s>" % (self.__class__.__name__, self["data_set_path"])
 
     def __getstate__(self):
         return {key: value for key, value in self.items()}
-    
+
     def __setstate__(self, state):
         super(Task, self).update(state)
 
