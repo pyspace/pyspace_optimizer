@@ -1,23 +1,20 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+import logging
 import numpy
 import os
-import time
-import logging
-import warnings
-
 import shutil
-
-import pySPACE
+import time
+import warnings
 
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
 
+import pySPACE
+from pySPACE.missions.nodes.decorators import ChoiceParameter
+from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
-
-from pySPACE.missions.nodes.decorators import ChoiceParameter
-from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
@@ -71,10 +68,11 @@ def optimize_pipeline(args):
     task, pipeline, _ = args
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
+    pipeline_hash = str(hash(pipeline)).replace("-", "_")
     base_result_dir = os.path.join(pySPACE.configuration.storage,
                                    "operation_results",
                                    "pySPACEOptimizer",
-                                   str(hash(pipeline)))
+                                   pipeline_hash)
     # Create the directory if not existing
     if not os.path.isdir(base_result_dir):
         os.makedirs(base_result_dir)
@@ -128,9 +126,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
             pipeline = Pipeline(configuration=self._task,
                                 node_chain=[self._create_node(node_name) for node_name in pipeline])
             yield (self._task, pipeline, self._backend)
-            # We need to wait at least one second before yielding the next pipeline
-            # otherwise the result will be stored within the same result dir
-            time.sleep(1)
 
     def optimize(self):
         self._logger.info("Optimizing Pipelines")

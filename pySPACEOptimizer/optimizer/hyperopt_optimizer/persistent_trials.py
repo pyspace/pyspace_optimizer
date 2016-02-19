@@ -119,6 +119,9 @@ class MultiprocessingPersistentTrials(PersistentTrials):
         pool = OptimizerPool()
         for number, doc in zip(range(len(self._dynamic_trials)), self._dynamic_trials):
             pool.apply_async(evaluate_trial, args=(domain, self, number, doc), callback=self._update_doc)
+            # We need to wait at least one second before yielding the next pipeline
+            # otherwise the result will be stored within the same result dir
+            time.sleep(1)
         # Close the pool
         pool.close()
 
