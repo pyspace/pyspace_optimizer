@@ -25,8 +25,8 @@ setup(
             "pySPACEOptimizer = pySPACEOptimizer.__main__:main"
         ],
         OPTIMIZER_ENTRY_POINT: [
-            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:HyperoptOptimizer",
-            "SerialHyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer:SerialHyperoptOptimizer"
+            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:HyperoptOptimizer",
+            "SerialHyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:SerialHyperoptOptimizer"
         ],
         TASK_ENTRY_POINT: [
             "classification = pySPACEOptimizer.tasks.classification:ClassificationTask",

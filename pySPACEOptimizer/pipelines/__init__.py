@@ -122,7 +122,7 @@ class Pipeline(object):
         operation_spec["base_file"] = "\n".join(lines)
         return operation_spec
 
-    def execute(self, parameter_ranges=None, backend=u"serial"):
+    def execute(self, parameter_ranges=None, backend=u"serial", base_result_dir=None):
         """
         Executes the pipeline using the given backend.
 
@@ -136,7 +136,8 @@ class Pipeline(object):
         try:
             with output_logger(self._logger):
                 backend = pySPACE.create_backend(backend)
-                operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges))
+                operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
+                                                     base_result_dir=base_result_dir)
                 pySPACE.run_operation(backend, operation)
                 return operation.get_output_directory()
         except:

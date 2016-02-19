@@ -3,16 +3,18 @@
 import numpy
 import os
 import time
-import warnings
 import logging
+import warnings
+
+import shutil
+
 import pySPACE
 
 from hyperopt import fmin, STATUS_OK, tpe, STATUS_FAIL
-from hyperopt.mongoexp import MongoTrials, MongoJobs, MongoWorker, ReserveTimeout
 
-from base_optimizer import PySPACEOptimizer
-from optimizer_pool import OptimizerPool
-from multiprocessing import Process
+from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
+from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials
+from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 
 from pySPACE.missions.nodes.decorators import ChoiceParameter
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
@@ -22,37 +24,19 @@ from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, Hyperop
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 
 
-MONGODB_CONNECTION = "mongo://%(host)s:%(port)s" % {"host": os.getenv("MONGO_PORT_27017_TCP_ADDR", "localhost"),
-                                                    "port": os.getenv("MONGO_PORT_27017_TCP_PORT", "27017")}
-
-
-class WorkerProcess(Process):
-
-    def __init__(self, mongodb_connection, exp_key=None, workdir=None):
-        super(WorkerProcess, self).__init__(name="HyperoptMongoWorker")
-        self.__connection = mongodb_connection
-        self.__key = exp_key
-        self.__workdir = workdir
-
-    def run(self):
-        mj = MongoJobs.new_from_connection_str(self.__connection + '/jobs')
-        mworker = MongoWorker(mj, exp_key=self.__key, workdir=self.__workdir)
-        try:
-            mworker.run_one(erase_created_workdir=True)
-        except ReserveTimeout:
-            pass
-
-
 def __minimize(spec):
-    task, pipeline, backend = spec[0]
+    task, pipeline, backend, base_result_dir = spec[0]
     logger = pipeline.get_logger()
     parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
     # noinspection PyBroadException
     try:
+        # Execute the pipeline
         with warnings.catch_warnings():
-            # Ignore all warnings shown by the pipeline as most of them occur because of the parameters selected
             warnings.simplefilter("ignore")
-            result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
+            result_path = pipeline.execute(parameter_ranges=parameter_ranges,
+                                           backend=backend,
+                                           base_result_dir=base_result_dir)
+        # Check the result
         result_file = os.path.join(result_path, "results.csv") if result_path is not None else ""
         if os.path.isfile(result_file):
             summary = PerformanceResultSummary.from_csv(result_file)
@@ -85,37 +69,51 @@ def __minimize(spec):
 
 def optimize_pipeline(args):
     task, pipeline, _ = args
-    pipeline_space = [args, pipeline.pipeline_space]
-    max_evals = task["max_evaluations"] if task["max_evaluations"] else 100
-    connection = task["mongodb_connection"] if task["mongodb_connection"] else MONGODB_CONNECTION
-    # Store each pipeline in it's own db
-    connection += "/%s" % hash(pipeline)
-    workers = [WorkerProcess(connection, workdir=pySPACE.configuration.storage) for _ in range(max_evals)]
-    try:
-        # Start the workers
-        for worker in workers:
-            worker.start()
-        # Run the minimizer
-        trials = MongoTrials(connection + "/jobs")
-        best = fmin(fn=__minimize,
-                    space=pipeline_space,
-                    algo=task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest,
-                    max_evals=max_evals,
-                    trials=trials,
-                    rseed=int(time.time()))
-        # Replace indexes of choice parameters with the selected values
-        new_pipeline_space = {}
-        for node in pipeline.nodes:
-            new_pipeline_space.update(PipelineNode.parameter_space(node))
+    # Get the base result dir and append it to the arguments
+    # Store each pipeline in it's own folder
+    base_result_dir = os.path.join(pySPACE.configuration.storage,
+                                   "operation_results",
+                                   "pySPACEOptimizer",
+                                   str(hash(pipeline)))
+    # Create the directory if not existing
+    if not os.path.isdir(base_result_dir):
+        os.makedirs(base_result_dir)
 
-        for key, value in best.iteritems():
-            if isinstance(new_pipeline_space[key], ChoiceParameter):
-                best[key] = new_pipeline_space[key].choices[value]
-        return trials.best_trial["result"]["loss"], pipeline, best
-    finally:
-        for worker in workers:
-            worker.terminate()
-            worker.join()
+    args += (base_result_dir,)
+    pipeline_space = [args, pipeline.pipeline_space]
+
+    # Get the number of evaluations to make
+    max_evals = task["max_evaluations"] if task["max_evaluations"] else 100
+
+    #  Run the minimizer
+    trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)
+    if "restart_evaluation" in task and task["restart_evaluation"]:
+        # Delete the old values and start over again
+        try:
+            shutil.rmtree(base_result_dir)
+            os.makedirs(base_result_dir)
+            trials.delete_all()
+        except OSError as exc:
+            pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
+
+    best = fmin(fn=__minimize,
+                space=pipeline_space,
+                algo=task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest,
+                max_evals=max_evals,
+                trials=trials,
+                rseed=int(time.time()))
+
+    # Replace indexes of choice parameters with the selected values
+    new_pipeline_space = {}
+    for node in pipeline.nodes:
+        new_pipeline_space.update(PipelineNode.parameter_space(node))
+
+    for key, value in best.iteritems():
+        if isinstance(new_pipeline_space[key], ChoiceParameter):
+            best[key] = new_pipeline_space[key].choices[value]
+
+    # Return the best trial
+    return trials.best_trial["result"]["loss"], pipeline, best
 
 
 class HyperoptOptimizer(PySPACEOptimizer):

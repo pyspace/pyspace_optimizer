@@ -39,7 +39,8 @@ class PySPACEOptimizer(object):
         :type best_pipeline: Pipeline
         :type best_parameters: dict[str, list[object]]
         """
-        operation_spec = best_pipeline.operation_spec(best_parameters)
+        parameter_ranges = {param: [value] for param, value in best_parameters.iteritems()}
+        operation_spec = best_pipeline.operation_spec(parameter_ranges=parameter_ranges)
         # Reset the file cursor
         self._best_result.seek(0)
         # Write the result to the object
