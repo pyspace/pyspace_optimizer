@@ -30,7 +30,9 @@ class FileLikeLogger(object):
         pass
 
     def write(self, message):
-        message = message.replace("\r", "").replace("\n", "")
+        while message and message[-1] in ("\r", "\n"):
+            # strip tailing newlines
+            message = message[:-1]
         self.__logger.log(level=self.__log_level, msg=message)
 
 
