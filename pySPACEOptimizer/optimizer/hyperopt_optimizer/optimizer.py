@@ -95,7 +95,9 @@ def optimize_pipeline(args):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    with OutputLogger(logger=pipeline.get_logger(), log_level=logging.INFO):
+    # Log errors from here with special logger
+    with OutputLogger(std_out_logger=pipeline.get_logger(),
+                      std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
         best = fmin(fn=__minimize,
                     space=pipeline_space,
                     algo=task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest,
