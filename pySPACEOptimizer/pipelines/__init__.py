@@ -110,7 +110,9 @@ class Pipeline(object):
             backend = pySPACE.create_backend(backend)
             operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
                                                  base_result_dir=base_result_dir)
-            pySPACE.run_operation(backend, operation)
+            with open(os.devnull, "w") as output:
+                with OutputRedirecter(std_out=output, std_err=sys.stderr):
+                    pySPACE.run_operation(backend, operation)
             return operation.get_output_directory()
         except:
             self._logger.exception("Error in '%s':", self)

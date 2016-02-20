@@ -5,7 +5,7 @@ import sys
 class OutputRedirecter(object):
 
     def __init__(self, std_out, std_err):
-        self.__stdout = std_out,
+        self.__stdout = std_out
         self.__stderr = std_err
         self.__old_stdout = None
         self.__old_stderr = None
@@ -13,13 +13,13 @@ class OutputRedirecter(object):
     def __enter__(self):
         self.__old_stdout = sys.stdout
         self.__old_stderr = sys.stderr
-        sys.stderr = self.__stdout
-        sys.stdout = self.__stderr
+        sys.stdout = self.__stdout
+        sys.stderr = self.__stderr
 
     # noinspection PyUnusedLocal
     def __exit__(self, *args, **kwargs):
-        sys.sterr = self.__old_stderr
         sys.stdout = self.__old_stdout
+        sys.sterr = self.__old_stderr
 
 
 class FileLikeLogger(object):
