@@ -1,51 +1,21 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import copy
-import yaml
 import logging
+import os
+
 import sys
+import yaml
 
 import pySPACE
 from pySPACEOptimizer.pipelines.nodes import PipelineNode
 from pySPACEOptimizer.tasks.base_task import Task
+from pySPACEOptimizer.utils import OutputRedirecter
 
 try:
     from yaml import CSafeDumper as Dumper
 except ImportError:
     from yaml import SafeDumper as Dumper
-
-
-class output_logger(object):
-    class Redirecter(object):
-        def __init__(self, logger, loglevel):
-            self.__logger = logger
-            self.__loglevel = loglevel
-
-        def flush(self):
-            pass
-
-        def write(self, message):
-            # redirect "Operation progress: ..." output to INFO level
-            if self.__loglevel != logging.INFO and message.lower().find("operation progress:") != -1:
-                self.__logger.info(message)
-            else:
-                self.__logger.log(self.__loglevel, message)
-
-    def __init__(self, logger):
-        self._logger = logger
-        self.__old_stdout = None
-        self.__old_stderr = None
-
-    def __enter__(self):
-        self.__old_stdout = sys.stdout
-        self.__old_stderr = sys.stderr
-        sys.stderr = self.Redirecter(self._logger, logging.ERROR)
-        sys.stdout = self.Redirecter(self._logger, logging.INFO)
-
-    # noinspection PyUnusedLocal
-    def __exit__(self, *args, **kwargs):
-        sys.sterr = self.__old_stderr
-        sys.stdout = self.__old_stdout
 
 
 class Pipeline(object):
@@ -70,7 +40,7 @@ class Pipeline(object):
         self._input_path = configuration["data_set_path"]
         self._configuration = configuration
         self._logger = self.get_logger()
-        self._logger.info("Pipeline {object!s} is {object!r}".format(object=self))
+        self._logger.info("{object!s} is {object!r}".format(object=self))
 
     @property
     def nodes(self):
@@ -130,16 +100,18 @@ class Pipeline(object):
         :type parameter_ranges: dict[str, list[object]]
         :param backend: The backend to use for execution. (Default: serial)
         :type backend: unicode
+        :param base_result_dir: The base directory to put the logfiles into.
+        :type base_result_dir: unicode
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
+        # noinspection PyBroadException
         try:
-            with output_logger(self._logger):
-                backend = pySPACE.create_backend(backend)
-                operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
-                                                     base_result_dir=base_result_dir)
-                pySPACE.run_operation(backend, operation)
-                return operation.get_output_directory()
+            backend = pySPACE.create_backend(backend)
+            operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
+                                                 base_result_dir=base_result_dir)
+            pySPACE.run_operation(backend, operation)
+            return operation.get_output_directory()
         except:
             self._logger.exception("Error in '%s':", self)
             return None
@@ -162,13 +134,13 @@ class Pipeline(object):
 
     def __repr__(self):
         r = "["
-        r += ",".join([repr(node) for node in self._nodes])
+        r += ", ".join([repr(node) for node in self._nodes])
         r += "]"
         r += "@{input!s}".format(input=self._input_path)
         return r
 
     def __str__(self):
-        return "Pipeline<{hash!s}>".format(hash=hash(self))
+        return "Pipeline<{hash!s:>20s}>".format(hash=hash(self))
 
     def __getstate__(self):
         return {
@@ -177,8 +149,7 @@ class Pipeline(object):
             "_input_path": self._input_path}
 
     def get_logger(self):
-        return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__,
-                                                                    object=self))
+        return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__, object=self))
 
     def __setstate__(self, state):
         self.__dict__.update(state)

@@ -1,9 +1,16 @@
+import logging
 import multiprocessing
 import os
+import time
 
+import sys
+
+import functools
 from hyperopt import Trials, Domain, base
 
+from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
+from pySPACEOptimizer.utils import FileLikeLogger
 
 try:
     from cPickle import load, dump, HIGHEST_PROTOCOL
@@ -11,6 +18,7 @@ except ImportError:
     from pickle import load, dump, HIGHEST_PROTOCOL
 
 
+# noinspection PyAbstractClass
 class PersistentTrials(Trials):
 
     STORAGE_NAME = "trials.pickle"
@@ -68,44 +76,47 @@ class PersistentTrials(Trials):
 
 
 def evaluate_trial(domain, trials, number, trial):
-    if trial['state'] == base.JOB_STATE_NEW:
-        spec = base.spec_from_misc(trial['misc'])
-        ctrl = base.Ctrl(trials, current_trial=trial)
-        try:
-            result = domain.evaluate(spec, ctrl)
-        except Exception, e:
-            trial['state'] = base.JOB_STATE_ERROR
-            trial['misc']['error'] = (str(type(e)), str(e))
-        else:
-            trial['state'] = base.JOB_STATE_DONE
-            trial['result'] = result
+    spec = base.spec_from_misc(trial['misc'])
+    ctrl = base.Ctrl(trials, current_trial=trial)
+    try:
+        result = domain.evaluate(spec, ctrl)
+    except Exception, e:
+        trial['state'] = base.JOB_STATE_ERROR
+        trial['misc']['error'] = (str(type(e)), str(e))
+    else:
+        trial['state'] = base.JOB_STATE_DONE
+        trial['result'] = result
     return number, trial
 
 
-
+# noinspection PyAbstractClass
 class MultiprocessingPersistentTrials(PersistentTrials):
 
     async = False
 
     def __init__(self, trials_dir, exp_key=None, refresh=True):
         super(MultiprocessingPersistentTrials, self).__init__(trials_dir=trials_dir, exp_key=exp_key, refresh=refresh)
+        self._progress_bar = None
+        self._progress = 0
 
-    def _update_doc(self, result):
+    def _update_doc(self, progress_bar, result):
         number, doc = result
         self._dynamic_trials[number] = doc
         self.refresh()
-
-    def get_queue_len(self):
-        return self.count_by_state_unsynced(base.JOB_STATE_NEW)
+        # Update the progress bar
+        self._progress += 1
+        progress_bar.update(self._progress)
 
     def fmin(self, fn, space, algo, max_evals, rseed=123):
         domain = Domain(fn, space, rseed=rseed)
-        qlen = self.get_queue_len()
-        n_to_enqueue = max_evals - qlen
+        n_to_enqueue = max_evals - len(self._trials)
         if n_to_enqueue > 0:
             new_ids = self.new_trial_ids(n_to_enqueue)
             self.refresh()
-            new_trials = algo(new_ids, domain, self)
+            new_trials = algo(new_ids=new_ids,
+                              domain=domain,
+                              trials=self,
+                              seed=rseed)
             if new_trials is base.StopExperiment:
                 return None
             else:
@@ -116,9 +127,24 @@ class MultiprocessingPersistentTrials(PersistentTrials):
                 else:
                     return None
 
-        pool = OptimizerPool()
-        for number, doc in zip(range(len(self._dynamic_trials)), self._dynamic_trials):
-            pool.apply_async(evaluate_trial, args=(domain, self, number, doc), callback=self._update_doc)
+        # Every worker just has to handle one task per default
+        pool = OptimizerPool(maxtasksperchild=1)
+
+        # Get the trials to evaluate
+        trials = [trial for trial in self._dynamic_trials if trial["state"] == base.JOB_STATE_NEW]
+
+        # Set up progress bar
+        self._progress = 0
+        widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
+
+        progress_bar = ProgressBar(widgets=widgets,
+                                   maxval=len(trials),
+                                   fd=sys.stdout)
+        # Create the callback method as partial because the progress_bar is not serializable
+        callback = functools.partial(self._update_doc, progress_bar)
+
+        for number, trial in zip(range(len(trials)), trials):
+            pool.apply_async(evaluate_trial, args=(domain, self, number, trial), callback=callback)
             # We need to wait at least one second before yielding the next pipeline
             # otherwise the result will be stored within the same result dir
             time.sleep(1)

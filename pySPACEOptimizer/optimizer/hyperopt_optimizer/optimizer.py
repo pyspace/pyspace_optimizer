@@ -19,6 +19,7 @@ from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
+from pySPACEOptimizer.utils import OutputLogger
 
 
 def __minimize(spec):
@@ -94,12 +95,13 @@ def optimize_pipeline(args):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    best = fmin(fn=__minimize,
-                space=pipeline_space,
-                algo=task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest,
-                max_evals=max_evals,
-                trials=trials,
-                rseed=int(time.time()))
+    with OutputLogger(logger=pipeline.get_logger(), log_level=logging.INFO):
+        best = fmin(fn=__minimize,
+                    space=pipeline_space,
+                    algo=task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest,
+                    max_evals=max_evals,
+                    trials=trials,
+                    rseed=int(time.time()))
 
     # Replace indexes of choice parameters with the selected values
     new_pipeline_space = {}
@@ -130,7 +132,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def optimize(self):
         self._logger.info("Optimizing Pipelines")
         self._logger.debug("Creating optimization pool")
-        pool = OptimizerPool()
+        pool = OptimizerPool(maxtasksperchild=1)
         results = pool.imap(optimize_pipeline, self._generate_pipelines())
         pool.close()
 
@@ -145,6 +147,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
                     best = [loss, pipeline, parameters]
                     self.store_best_result(best_pipeline=pipeline,
                                            best_parameters=parameters)
+        except:
+            self._logger.exception("Error in optimization process:")
+            pool.terminate()
         finally:
             pool.join()
         return best
