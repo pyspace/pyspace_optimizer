@@ -30,7 +30,10 @@ handlers:
     filename: pipeline_output.pylog
 
   pipeline_error_handler:
-    class: logging.NullHandler
+    class: logging.handlers.RotatingFileHandler
+    formatter: file_formatter
+    level: WARNING
+    filename: pipeline_errors.pylog
 
   null_handler:
     class: logging.NullHandler
