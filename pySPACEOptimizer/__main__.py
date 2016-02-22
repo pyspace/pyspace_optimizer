@@ -23,8 +23,7 @@ def create_parser():
                         default="config.yaml")
     parser.add_argument("-t", "--task", type=FileType("rb"),
                         help="The path to a task description in YAML format")
-    parser.add_argument("-r", "--result", type=FileType("wb"),
-                        default=None,
+    parser.add_argument("-r", "--result", type=str, default=None,
                         help="The name of the file to store the result into")
     parser.add_argument("-b", "--backend", type=str, default="serial",
                         help='The backend to use for testing in pySPACE. '
@@ -79,9 +78,8 @@ def main(args=None):
             logger.info("Start optimization..")
             task = task_from_yaml(arguments.task)
             if arguments.result is None:
-                arguments.result = open("%s/pySPACEcenter/specs/operations/%s_best.yaml" % (
-                    HOME, task["data_set_path"]), mode="wb")
-            logger.info("Best result will be stored as: %s" % arguments.result.name)
+                arguments.result = "%s/pySPACEcenter/specs/operations/%s_best.yaml" % (HOME, task["data_set_path"])
+            logger.info("Best result will be stored as: %s" % arguments.result)
 
             optimizer = optimizer_factory(task, arguments.backend, arguments.result)
             best_result = optimizer.optimize()

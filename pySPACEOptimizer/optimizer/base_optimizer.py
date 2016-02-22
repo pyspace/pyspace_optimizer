@@ -1,6 +1,8 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import abc
+import os
+
 from pySPACEOptimizer.pipelines import Pipeline
 
 
@@ -32,7 +34,7 @@ class PySPACEOptimizer(object):
         """
         self._task = task
         self._backend = backend
-        self._best_result = best_result_file if best_result_file is not None else "%s_best.yaml" % task["data_set_path"]
+        self._best_result_file = best_result_file if best_result_file is not None else "%s_best.yaml" % task["data_set_path"]
 
     def store_best_result(self, best_pipeline, best_parameters):
         """
@@ -41,10 +43,9 @@ class PySPACEOptimizer(object):
         """
         parameter_ranges = {param: [value] for param, value in best_parameters.iteritems()}
         operation_spec = best_pipeline.operation_spec(parameter_ranges=parameter_ranges)
-        # Reset the file cursor
-        self._best_result.seek(0)
-        # Write the result to the object
-        self._best_result.write(operation_spec["base_file"])
+        with open(self._best_result_file, "wb") as best_result_file:
+            # Write the result to the object
+           best_result_file.write(operation_spec["base_file"])
 
     @abc.abstractmethod
     def optimize(self):

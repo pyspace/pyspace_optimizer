@@ -38,7 +38,7 @@ class Pipeline(object):
         else:
             self._nodes = []
         self._input_path = configuration["data_set_path"]
-        self._configuration = configuration
+        self.configuration = configuration
         self._logger = self.get_logger()
         self._logger.info("{object!s} is {object!r}".format(object=self))
 
@@ -147,7 +147,7 @@ class Pipeline(object):
     def __getstate__(self):
         return {
             "_nodes": self._nodes,
-            "_configuration": self._configuration,
+            "configuration": self.configuration,
             "_input_path": self._input_path}
 
     def get_logger(self):
