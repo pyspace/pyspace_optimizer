@@ -29,7 +29,8 @@ class PipelineGenerator(object):
         self._sink_node = configuration["sink_node"]
         self._sink_node_inputs = configuration.nodes[self._sink_node].get_input_types()
         self._nodes = configuration.weighted_nodes_by_input_type()
-        self._required_nodes = set(configuration.required_node_types)
+        self._required_node_types = configuration.required_node_types
+        self._required_nodes = configuration.required_nodes
         self._configuration = configuration
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -70,10 +71,10 @@ class PipelineGenerator(object):
             # - it's not the first node and not a splitter node, not a sink node
             #   and the type is not contained in the pipeline
             if (first_node and is_source_node(node)) or (
-                            not first_node and
-                            not is_splitter_node(node) and
-                            not is_sink_node(node) and
-                            get_node_type(node) not in types):
+                    not first_node and
+                    not is_splitter_node(node) and
+                    not is_sink_node(node) and
+                    get_node_type(node) not in types):
                 if node not in array:
                     self._logger.debug("\t" * index + "Appending '%s'", node)
                     pipeline_array[index] = node
@@ -88,8 +89,9 @@ class PipelineGenerator(object):
                         # and yield a list containing exactly the pipeline
                         pipeline_array[index + 1] = self._sink_node
                         pipeline_types[index + 1] = get_node_type(self._sink_node)
-                        if self._required_nodes.issubset(pipeline_types[:index + 2]):
-                            # All required types are in the pipeline
+                        if self._required_node_types.issubset(pipeline_types[:index + 2]) and \
+                                self._required_nodes.issubset(pipeline_array[:index + 2]):
+                            # All required types and nodes are in the pipeline
                             # it might work.. yield it
                             result = list(pipeline_array[:index + 2])
                             self._logger.debug("\t" * index + "Valid pipeline found: '%s'", result)

@@ -11,7 +11,9 @@ class ClassificationTask(Task):
 
     @property
     def required_node_types(self):
-        return ["source", "classification", "sink"]
+        node_types = super(ClassificationTask, self).required_node_types
+        node_types.add("classification")
+        return node_types
 
     @property
     def nodes(self):
