@@ -1,16 +1,13 @@
-import logging
+import functools
 import multiprocessing
 import os
+import sys
 import time
 
-import sys
-
-import functools
 from hyperopt import Trials, Domain, base
 
 from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
-from pySPACEOptimizer.utils import FileLikeLogger
 
 try:
     from cPickle import load, dump, HIGHEST_PROTOCOL

@@ -16,13 +16,13 @@ class HyperoptNode(PipelineNode):
         space = {}
         for key, value in super(HyperoptNode, self).parameter_space().iteritems():
             if isinstance(value, QUniformParameter):
-                space[key] = hp.qloguniform(key, value.min, value.max, value.q)
+                space[key] = hp.quniform(key, value.min, value.max, value.q)
             elif isinstance(value, UniformParameter):
-                space[key] = hp.loguniform(key, value.min, value.max)
+                space[key] = hp.uniform(key, value.min, value.max)
             elif isinstance(value, QNormalParameter):
-                space[key] = hp.qlognormal(key, value.mu, value.sigma, value.q)
+                space[key] = hp.qnormal(key, value.mu, value.sigma, value.q)
             elif isinstance(value, NormalParameter):
-                space[key] = hp.lognormal(key, value.mu, value.sigma)
+                space[key] = hp.normal(key, value.mu, value.sigma)
             elif isinstance(value, ChoiceParameter):
                 space[key] = hp.choice(key, value.choices)
         return space
