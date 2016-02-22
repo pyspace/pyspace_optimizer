@@ -32,7 +32,7 @@ class PySPACEOptimizer(object):
         """
         self._task = task
         self._backend = backend
-        self._best_result = best_result_file
+        self._best_result = best_result_file if best_result_file is not None else "%s_best.yaml" % task["data_set_path"]
 
     def store_best_result(self, best_pipeline, best_parameters):
         """
