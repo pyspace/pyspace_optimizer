@@ -38,21 +38,17 @@ class Task(dict):
 
     def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3,
                  max_eval_time=60, metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode",
-                 whitelist=None, blacklist=None, force_list=None, node_weights=None, parameter_ranges=None, **kwargs):
+                 whitelist=None, blacklist=None, forced_nodes=None, node_weights=None, parameter_ranges=None, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
         # First do some sanity checks
-        if whitelist is None:
-            whitelist = []
-        else:
+        if whitelist is not None:
             for node in whitelist:
                 if node not in DEFAULT_NODE_MAPPING:
                     raise ValueError("'%s' from white list is not a node" % node)
 
-        if node_weights is None:
-            node_weights = {}
-        else:
+        if node_weights is not None:
             for node, weight in node_weights.iteritems():
                 if node not in DEFAULT_NODE_MAPPING:
                     raise ValueError("'%s' from weight dict is not a node" % node)
@@ -65,19 +61,22 @@ class Task(dict):
         if main_class not in class_labels:
             raise ValueError("The main class is not defined as a class label")
 
+        if not is_sink_node(sink_node):
+            raise ValueError("The node '%s' is not a sink node" % sink_node)
+
         super(Task, self).__init__({
             "data_set_path": input_path,
             "max_pipeline_length": max_pipeline_length,
             "source_node": source_node,
             "sink_node": sink_node,
             "optimizer": optimizer,
-            "class_labels": class_labels,
+            "class_labels": set(class_labels),
             "main_class": main_class,
             "metric": metric,
-            "whitelist": whitelist,
-            "blacklist": blacklist if blacklist is not None else [],
-            "force_list": force_list if force_list is not None else [],
-            "node_weights": node_weights,
+            "whitelist": set(whitelist) if whitelist is not None else set(),
+            "blacklist": set(blacklist) if blacklist is not None else set(),
+            "forced_nodes": set(forced_nodes) if forced_nodes is not None else set(),
+            "node_weights": dict(node_weights) if node_weights is not None else dict(),
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
         })
@@ -89,9 +88,7 @@ class Task(dict):
                 self.data_set_type not in DEFAULT_NODE_MAPPING[source_node].get_input_types()):
             raise ValueError("'%s' is either not a source node or is not able to emit data type '%s'" % (
                 source_node, self.data_set_type))
-        # and the sink node
-        if not is_sink_node(sink_node):
-            raise ValueError("The node '%s' is not a sink node" % sink_node)
+
         self._log_task()
 
     def _log_task(self):
@@ -119,8 +116,17 @@ class Task(dict):
                                                                      "splitter", "visualization"]])
 
     @property
+    def required_nodes(self):
+        nodes = set(self["forced_nodes"])
+        if self["source_node"]:
+            nodes.add(self["source_node"])
+        if self["sink_node"]:
+            nodes.add(self["sink_node"])
+        return nodes
+
+    @property
     def required_node_types(self):
-        return ["source", "sink"]
+        return {"source", "sink"}
 
     @property
     def nodes(self):
@@ -136,11 +142,18 @@ class Task(dict):
             elif self["source_node"] is None:
                 # Append all source nodes
                 nodes.update({
-                    node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)
-                })
-            return nodes
+                                 node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)
+                                 })
         else:
-            return {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if self.__valid_node(node)}
+            nodes = {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if self.__valid_node(node)}
+
+        # remove blacklisted nodes
+        if self["blacklist"]:
+            for node in self["blacklist"]:
+                if node in nodes:
+                    del nodes[node]
+        # Return all valid nodes
+        return nodes
 
     @property
     def nodes_by_input_type(self):

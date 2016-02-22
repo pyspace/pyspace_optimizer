@@ -34,6 +34,6 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                             }}
                          ])
         task = task_factory(task_spec)
-        optimizer = optimizer_factory(task, backend="mcore")
+        optimizer = optimizer_factory(task, backend="mcore", best_result_file="test.yaml")
         best_params = optimizer.optimize()
         self.assertIsNotNone(best_params)
