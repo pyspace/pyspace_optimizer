@@ -70,7 +70,7 @@ class Task(dict):
             "source_node": source_node,
             "sink_node": sink_node,
             "optimizer": optimizer,
-            "class_labels": set(class_labels),
+            "class_labels": tuple(class_labels),
             "main_class": main_class,
             "metric": metric,
             "whitelist": set(whitelist) if whitelist is not None else set(),
