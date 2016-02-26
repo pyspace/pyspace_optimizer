@@ -53,9 +53,9 @@ class OptimizerPool(Pool):
     def join(self):
         debug('joining pool')
         assert self._state in (CLOSE, TERMINATE)
-        self._worker_handler.join()
-        self._task_handler.join()
-        self._result_handler.join()
+        self._worker_handler.join(timeout=self.DEFAULT_GET_TIMEOUT)
+        self._task_handler.join(timeout=self.DEFAULT_GET_TIMEOUT)
+        self._result_handler.join(timeout=self.DEFAULT_GET_TIMEOUT)
         for p in self._pool:
             p.join(timeout=self.DEFAULT_GET_TIMEOUT)
 

@@ -39,7 +39,7 @@ handlers:
     class: logging.NullHandler
 
 loggers:
-  '':
+  "":
     level: ERROR
     handlers:
       - null_handler

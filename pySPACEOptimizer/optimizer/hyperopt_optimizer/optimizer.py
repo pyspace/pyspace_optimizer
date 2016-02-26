@@ -220,7 +220,6 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
     def optimize(self):
         self._logger.info("Optimizing Pipelines")
         best = [float("inf"), None, None]
-
         for pipeline in self._generate_pipelines():
             optimize_pipeline(self._backend, self._queue, pipeline)
             # Append the senity value, because no additional result can be found
