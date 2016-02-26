@@ -37,7 +37,7 @@ def is_sink_node(node_name):
 class Task(dict):
 
     def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3,
-                 max_eval_time=60, metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode",
+                 max_eval_time=0, metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode",
                  whitelist=None, blacklist=None, forced_nodes=None, node_weights=None, parameter_ranges=None, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))

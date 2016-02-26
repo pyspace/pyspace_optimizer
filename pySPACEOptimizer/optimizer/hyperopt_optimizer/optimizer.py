@@ -157,7 +157,11 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def _read_queue(self,results=None):
         best = [float("inf"), None, None]
-        end_time = time.time() + self._task["max_eval_time"]
+        if self._task["max_eval_time"] > 0:
+            end_time = time.time() + self._task["max_eval_time"]
+        else:
+            end_time = float("inf")
+
         while time.time() < end_time:
             if self._queue.empty() and results is not None and all([result.ready() for result in results]):
                 # the queue is empty and all workers are finished: break
