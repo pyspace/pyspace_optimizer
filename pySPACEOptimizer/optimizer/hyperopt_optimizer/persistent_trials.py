@@ -38,8 +38,13 @@ class PersistentTrials(Trials):
         super(PersistentTrials, self).__init__(exp_key=exp_key, refresh=False)
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()
+        # Set up progress bar
+        self._progress = 0
+        widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
+        self._progress_bar = ProgressBar(widgets=widgets, fd=sys.stdout)
         if refresh:
             self.refresh()
+
 
     def _load_trials(self):
         if os.path.isfile(self._trials_file):
@@ -91,30 +96,30 @@ class PersistentTrials(Trials):
             return item["state"]
         return sorted(self._dynamic_trials, key=get_state, reverse=True)
 
-    def _update_doc(self, progress_bar, number, trial):
+    def _update_doc(self, number, trial):
         self._dynamic_trials[number] = trial
         self.refresh()
         # Update the progress bar
         self._progress += 1
-        progress_bar.update(self._progress)
+        self._progress_bar.update(self._progress)
+
+    def _do_evaluate(self, domain , trials):
+        for number, trial in zip(range(len(trials)), trials):
+            evaluate_trial(domain=domain, trials=self, number=number, trial=trial)
+            yield number, trial
 
     def _evaluate(self, domain):
         # Get the trials to evaluate
         trials = self._sorted_trials()
 
-        # Set up progress bar
+        # Reset the progress bar
         self._progress = 0
-        widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
-
-        progress_bar = ProgressBar(widgets=widgets,
-                                   maxval=len(trials),
-                                   fd=sys.stdout)
-        for number, trial in zip(range(len(trials)), trials):
-            evaluate_trial(domain=domain, trials=self, number=number, trial=trial)
-            self._update_doc(progress_bar=progress_bar, number=number, trial=trial)
+        self._progress_bar.maxval = len(trials)
+        for number, trial in self._do_evaluate(domain=domain, trials=trials):
+            self._update_doc(number=number, trial=trial)
             yield trial
 
-    def _enqueue_trials(self, domain, algo, max_evals, rseed):
+    def _enqueue_trials(self, domain, algo, max_evals, rseed, training_jobs):
         n_to_enqueue = max_evals - len(self._trials)
         if n_to_enqueue > 0:
             new_ids = self.new_trial_ids(n_to_enqueue)
@@ -134,10 +139,16 @@ class PersistentTrials(Trials):
                     return False
         return True
 
-    def minimize(self, fn, space, algo, max_evals, rseed=123):
+    def train(self, fn, space, algo, evals, rseed=123):
+        for loss, parameters in self.minimize(fn=fn, space=space, algo=algo,
+                                              max_evals=evals, rseed=123, training_jobs=evals):
+            yield loss, parameters
+
+    def minimize(self, fn, space, algo, max_evals, rseed=123, training_jobs=20):
         domain = Domain(fn, space, rseed=rseed)
         # Enqueue the trials
-        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=max_evals, rseed=rseed):
+        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=max_evals,
+                                    rseed=rseed, training_jobs=training_jobs):
             raise StopIteration()
 
         # Do one minimization step and yield the result
@@ -173,20 +184,10 @@ class MultiprocessingPersistentTrials(PersistentTrials):
         self._progress_bar = None
         self._progress = 0
 
-    def _evaluate(self, domain):
+    def _do_evaluate(self, domain , trials):
         # Every worker just has to handle one task per default
         pool = OptimizerPool(maxtasksperchild=1)
 
-        # Get the trials to evaluate
-        trials = self._sorted_trials()
-
-        # Set up progress bar
-        self._progress = 0
-        widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
-
-        progress_bar = ProgressBar(widgets=widgets,
-                                   maxval=len(trials),
-                                   fd=sys.stdout)
         # Create the arguments passed to the evaluation method
         args = [(domain, self, number, trial) for number, trial in zip(range(len(trials)), trials)]
 
@@ -203,9 +204,7 @@ class MultiprocessingPersistentTrials(PersistentTrials):
         # noinspection PyBroadException
         try:
             for number, trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
-                self._update_doc(progress_bar=progress_bar, number=number, trial=trial)
-                yield trial
-
+                yield number, trial
             # Close the pool
             pool.close()
         except:

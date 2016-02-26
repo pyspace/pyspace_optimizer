@@ -71,6 +71,41 @@ def __minimize(spec):
 
 
 def optimize_pipeline(backend, queue, pipeline):
+
+    def _put_to_queue(loss, parameters):
+        # Replace indexes of choice parameters with the selected values
+        new_pipeline_space = {}
+        for node in pipeline.nodes:
+            new_pipeline_space.update(PipelineNode.parameter_space(node))
+
+        for key, value in parameters.iteritems():
+            if isinstance(new_pipeline_space[key], ChoiceParameter):
+                parameters[key] = new_pipeline_space[key].choices[value]
+
+        # And put the result into the queue
+        queue.put((loss, pipeline, parameters))
+
+    def _minimize():
+        # Log errors from here with special logger
+        with OutputLogger(std_out_logger=pipeline.get_logger(),
+                          std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
+            for loss, parameters in trials.minimize(fn=__minimize,
+                                                    space=pipeline_space,
+                                                    algo=suggestion_algo,
+                                                    max_evals=1,
+                                                    rseed=int(time.time())):
+                _put_to_queue(loss=loss, parameters=parameters)
+
+    def _train(evals):
+        with OutputLogger(std_out_logger=pipeline.get_logger(),
+                          std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
+            for loss, parameters in trials.train(fn=__minimize,
+                                                 space=pipeline_space,
+                                                 algo=suggestion_algo,
+                                                 evals=evals,
+                                                 rseed=int(time.time())):
+                _put_to_queue(loss=loss, parameters=parameters)
+
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
     task = pipeline.configuration
@@ -89,7 +124,7 @@ def optimize_pipeline(backend, queue, pipeline):
     max_evals = task["max_evaluations"]
     suggestion_algo = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
 
-    #  Run the minimizer
+    #  Run the minimizer using two pass evaluation
     trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)
     if "restart_evaluation" in task and task["restart_evaluation"]:
         # Delete the old values and start over again
@@ -100,25 +135,18 @@ def optimize_pipeline(backend, queue, pipeline):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    # Log errors from here with special logger
-    with OutputLogger(std_out_logger=pipeline.get_logger(),
-                      std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
-        for loss, parameters in trials.minimize(fn=__minimize,
-                                                space=pipeline_space,
-                                                algo=suggestion_algo,
-                                                max_evals=max_evals,
-                                                rseed=int(time.time())):
-            # Replace indexes of choice parameters with the selected values
-            new_pipeline_space = {}
-            for node in pipeline.nodes:
-                new_pipeline_space.update(PipelineNode.parameter_space(node))
-
-            for key, value in parameters.iteritems():
-                if isinstance(new_pipeline_space[key], ChoiceParameter):
-                    parameters[key] = new_pipeline_space[key].choices[value]
-
-            # And put the result into the queue
-            queue.put((loss, pipeline, parameters))
+    # if max_evals > 1 to evaluation with two-pass
+    # else do single pass evaluation
+    if max_evals > 1:
+        # first pass
+        # Train with max_evals - 1 runs..
+        _train(evals=max_evals - 1)
+        # second pass
+        # finally evaluate with one evaluation
+        _minimize()
+    elif max_evals == 1:
+        # simply to the evaluation
+        _minimize()
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -155,7 +183,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
             pool.terminate()
             pool.join()
 
-    def _read_queue(self,results=None):
+    def _read_queue(self, results=None):
         best = [float("inf"), None, None]
         if self._task["max_eval_time"] > 0:
             end_time = time.time() + self._task["max_eval_time"]
@@ -168,7 +196,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # but first check for errors:
                 for result in results:
                     if not result.successful():
-                        raise result
+                        raise result.get()
                 break
             else:
                 try:
