@@ -1,8 +1,9 @@
+import logging
 import os
 import sys
 import time
 
-from hyperopt import Trials, Domain, base
+from hyperopt import Trials, Domain, base, tpe
 
 from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
@@ -40,11 +41,10 @@ class PersistentTrials(Trials):
         self._dynamic_trials = self._load_trials()
         # Set up progress bar
         self._progress = 0
-        widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
-        self._progress_bar = ProgressBar(widgets=widgets, fd=sys.stdout)
+        self._widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
+        self._progress_bar = None
         if refresh:
             self.refresh()
-
 
     def _load_trials(self):
         if os.path.isfile(self._trials_file):
@@ -103,7 +103,7 @@ class PersistentTrials(Trials):
         self._progress += 1
         self._progress_bar.update(self._progress)
 
-    def _do_evaluate(self, domain , trials):
+    def _do_evaluate(self, domain, trials):
         for number, trial in zip(range(len(trials)), trials):
             evaluate_trial(domain=domain, trials=self, number=number, trial=trial)
             yield number, trial
@@ -114,12 +114,14 @@ class PersistentTrials(Trials):
 
         # Reset the progress bar
         self._progress = 0
-        self._progress_bar.maxval = len(trials)
+        self._progress_bar = ProgressBar(widgets=self._widgets,
+                                         maxval=len(trials),
+                                         fd=sys.stdout)
         for number, trial in self._do_evaluate(domain=domain, trials=trials):
             self._update_doc(number=number, trial=trial)
             yield trial
 
-    def _enqueue_trials(self, domain, algo, max_evals, rseed, training_jobs):
+    def _enqueue_trials(self, domain, algo, max_evals, rseed):
         n_to_enqueue = max_evals - len(self._trials)
         if n_to_enqueue > 0:
             new_ids = self.new_trial_ids(n_to_enqueue)
@@ -139,16 +141,10 @@ class PersistentTrials(Trials):
                     return False
         return True
 
-    def train(self, fn, space, algo, evals, rseed=123):
-        for loss, parameters in self.minimize(fn=fn, space=space, algo=algo,
-                                              max_evals=evals, rseed=123, training_jobs=evals):
-            yield loss, parameters
-
-    def minimize(self, fn, space, algo, max_evals, rseed=123, training_jobs=20):
+    def minimize(self, fn, space, algo, max_evals, rseed=123):
         domain = Domain(fn, space, rseed=rseed)
         # Enqueue the trials
-        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=max_evals,
-                                    rseed=rseed, training_jobs=training_jobs):
+        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=max_evals, rseed=rseed):
             raise StopIteration()
 
         # Do one minimization step and yield the result
@@ -169,20 +165,21 @@ class PersistentTrials(Trials):
         # Return the best result
         return self.argmin
 
+    def __getstate__(self):
+        result = self.__dict__.copy()
+        # Remove the progress bar as it is not pickable
+        result["_progress_bar"] = None
+        return result
 
 
 def trials_wrapper(args):
     return evaluate_trial(*args)
 
+
 # noinspection PyAbstractClass
 class MultiprocessingPersistentTrials(PersistentTrials):
 
     async = False
-
-    def __init__(self, trials_dir, exp_key=None, refresh=True):
-        super(MultiprocessingPersistentTrials, self).__init__(trials_dir=trials_dir, exp_key=exp_key, refresh=refresh)
-        self._progress_bar = None
-        self._progress = 0
 
     def _do_evaluate(self, domain , trials):
         # Every worker just has to handle one task per default

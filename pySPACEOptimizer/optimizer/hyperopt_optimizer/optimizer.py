@@ -72,39 +72,26 @@ def __minimize(spec):
 
 def optimize_pipeline(backend, queue, pipeline):
 
-    def _put_to_queue(loss, parameters):
-        # Replace indexes of choice parameters with the selected values
-        new_pipeline_space = {}
-        for node in pipeline.nodes:
-            new_pipeline_space.update(PipelineNode.parameter_space(node))
-
-        for key, value in parameters.iteritems():
-            if isinstance(new_pipeline_space[key], ChoiceParameter):
-                parameters[key] = new_pipeline_space[key].choices[value]
-
-        # And put the result into the queue
-        queue.put((loss, pipeline, parameters))
-
-    def _minimize():
+    def _do_pass(evals):
         # Log errors from here with special logger
         with OutputLogger(std_out_logger=pipeline.get_logger(),
                           std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
             for loss, parameters in trials.minimize(fn=__minimize,
                                                     space=pipeline_space,
                                                     algo=suggestion_algo,
-                                                    max_evals=1,
+                                                    max_evals=evals,
                                                     rseed=int(time.time())):
-                _put_to_queue(loss=loss, parameters=parameters)
+                # Replace indexes of choice parameters with the selected values
+                new_pipeline_space = {}
+                for node in pipeline.nodes:
+                    new_pipeline_space.update(PipelineNode.parameter_space(node))
 
-    def _train(evals):
-        with OutputLogger(std_out_logger=pipeline.get_logger(),
-                          std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
-            for loss, parameters in trials.train(fn=__minimize,
-                                                 space=pipeline_space,
-                                                 algo=suggestion_algo,
-                                                 evals=evals,
-                                                 rseed=int(time.time())):
-                _put_to_queue(loss=loss, parameters=parameters)
+                for key, value in parameters.iteritems():
+                    if isinstance(new_pipeline_space[key], ChoiceParameter):
+                        parameters[key] = new_pipeline_space[key].choices[value]
+
+                # And put the result into the queue
+                queue.put((loss, pipeline, parameters))
 
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
@@ -140,13 +127,13 @@ def optimize_pipeline(backend, queue, pipeline):
     if max_evals > 1:
         # first pass
         # Train with max_evals - 1 runs..
-        _train(evals=max_evals - 1)
+        _do_pass(evals=max_evals - 1)
         # second pass
         # finally evaluate with one evaluation
-        _minimize()
-    elif max_evals == 1:
+        _do_pass(evals=1)
+    else:
         # simply to the evaluation
-        _minimize()
+        _do_pass(evals=max_evals)
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
