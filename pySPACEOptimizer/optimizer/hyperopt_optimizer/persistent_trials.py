@@ -104,7 +104,7 @@ class PersistentTrials(Trials):
         self._progress_bar.update(self._progress)
 
     def _do_evaluate(self, domain, trials):
-        for number, trial in zip(range(len(trials)), trials):
+        for number, trial in enumerate(trials):
             evaluate_trial(domain=domain, trials=self, number=number, trial=trial)
             yield number, trial
 
@@ -183,10 +183,10 @@ class MultiprocessingPersistentTrials(PersistentTrials):
 
     def _do_evaluate(self, domain , trials):
         # Every worker just has to handle one task per default
-        pool = OptimizerPool(maxtasksperchild=1)
+        pool = OptimizerPool()
 
         # Create the arguments passed to the evaluation method
-        args = [(domain, self, number, trial) for number, trial in zip(range(len(trials)), trials)]
+        args = [(domain, self, number, trial) for number, trial in enumerate(trials)]
 
         def _yield_args():
             for arg in args:

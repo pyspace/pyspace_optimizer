@@ -154,7 +154,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def optimize(self):
         self._logger.info("Optimizing Pipelines")
         self._logger.debug("Creating optimization pool")
-        pool = OptimizerPool(maxtasksperchild=1)
+        pool = OptimizerPool()
 
         # Enqueue the evaluations and save the results
         results = [pool.apply_async(func=optimize_pipeline, args=(self._backend, self._queue, pipeline))
