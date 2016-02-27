@@ -23,7 +23,7 @@ from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, Hyperop
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 from pySPACEOptimizer.utils import OutputLogger
 
-SENITY_VALUE = None
+SENTINEL_VALUE = None
 
 
 def __minimize(spec):
@@ -45,7 +45,7 @@ def __minimize(spec):
             summary = PerformanceResultSummary.from_csv(result_file)
             # Calculate the mean of all data sets using the given metric
             if task["metric"] not in summary:
-                raise ValueError("Metric '%s' not found in result dataset" % task["metric"])
+                raise ValueError("Metric '%s' not found in result data set" % task["metric"])
 
             mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
 
@@ -72,14 +72,14 @@ def __minimize(spec):
 
 def optimize_pipeline(backend, queue, pipeline):
 
-    def _do_pass(evals):
+    def _do_pass(evaluations):
         # Log errors from here with special logger
         with OutputLogger(std_out_logger=pipeline.get_logger(),
                           std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
             for loss, parameters in trials.minimize(fn=__minimize,
                                                     space=pipeline_space,
-                                                    algo=suggestion_algo,
-                                                    max_evals=evals,
+                                                    algo=suggestion_algorithm,
+                                                    max_evals=evaluations,
                                                     rseed=int(time.time())):
                 # Replace indexes of choice parameters with the selected values
                 new_pipeline_space = {}
@@ -108,8 +108,8 @@ def optimize_pipeline(backend, queue, pipeline):
     pipeline_space = [(pipeline, backend, base_result_dir), pipeline.pipeline_space]
 
     # Get the number of evaluations to make
-    max_evals = task["max_evaluations"]
-    suggestion_algo = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
+    max_evaluations = task["max_evaluations"]
+    suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
 
     #  Run the minimizer using two pass evaluation
     trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)
@@ -122,18 +122,18 @@ def optimize_pipeline(backend, queue, pipeline):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    # if max_evals > 1 to evaluation with two-pass
+    # if max_evaluations > 1 to evaluation with two-pass
     # else do single pass evaluation
-    if max_evals > 1:
+    if max_evaluations > 1:
         # first pass
-        # Train with max_evals - 1 runs..
-        _do_pass(evals=max_evals - 1)
+        # Train with max_evaluations - 1 runs..
+        _do_pass(evaluations=max_evaluations - 1)
         # second pass
         # finally evaluate with one evaluation
-        _do_pass(evals=1)
+        _do_pass(evaluations=1)
     else:
         # simply to the evaluation
-        _do_pass(evals=max_evals)
+        _do_pass(evaluations=max_evaluations)
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -188,8 +188,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
             else:
                 try:
                     result = self._queue.get(timeout=1)
-                    if result is SENITY_VALUE:
-                        # SENITY_VALUE means no further results, break..
+                    if result is SENTINEL_VALUE:
+                        # SENTINEL_VALUE means no further results, break..
                         break
                     else:
                         loss, pipeline, parameters = result
@@ -222,8 +222,8 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
         best = [float("inf"), None, None]
         for pipeline in self._generate_pipelines():
             optimize_pipeline(self._backend, self._queue, pipeline)
-            # Append the senity value, because no additional result can be found
-            self._queue.put(SENITY_VALUE)
+            # Append the sentinel value, because no additional result can be found
+            self._queue.put(SENTINEL_VALUE)
             loss, pipeline, parameters = self._read_queue()
             self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
             if loss < best[0]:
