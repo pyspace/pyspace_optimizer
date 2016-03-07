@@ -1,0 +1,13 @@
+type: classification
+input_path: eeg_data
+optimizer: HyperoptOptimizer
+class_labels: [Standard, Target]
+main_class: Target
+max_pipeline_length: 4
+max_evaluations: 10
+passes: 5
+restart_evaluation: true
+source_node: Stream2TimeSeriesSourceNode
+whitelist:
+  - CustomChannelWiseFeatureNode
+  - OcRmmNode

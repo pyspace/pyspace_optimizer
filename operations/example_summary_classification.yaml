@@ -5,6 +5,7 @@ class_labels: [Standard, Target]
 main_class: Target
 max_pipeline_length: 4
 max_evaluations: 1
+passes: 1
 restart_evaluation: true
 source_node: FeatureVectorSourceNode
 whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]
