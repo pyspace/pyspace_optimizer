@@ -126,8 +126,9 @@ def optimize_pipeline(backend, queue, pipeline):
     if max_evaluations > 1:
         evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(passes)]
         if evaluations_per_pass[-1] < max_evaluations:
-            # We do have a odd number of evaluations do the eval in the last pass
-            evaluations_per_pass[-1] += 1
+            # our evaluations are not splittable by the passes
+            # add the remaining evaluations to the last pass
+            evaluations_per_pass[-1] += max_evaluations - evaluations_per_pass[-1]
     else:
         evaluations_per_pass = [1]
 
