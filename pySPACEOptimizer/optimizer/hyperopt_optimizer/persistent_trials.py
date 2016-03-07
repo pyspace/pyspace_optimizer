@@ -1,10 +1,8 @@
 import os
-import sys
 import time
 
-from hyperopt import Trials, Domain, base
+from hyperopt import Trials, Domain, base, JOB_STATE_NEW
 
-from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 
 try:
@@ -103,7 +101,7 @@ class PersistentTrials(Trials):
 
     def _evaluate(self, domain):
         # Get the trials to evaluate
-        trials = self._sorted_trials()
+        trials = [trial for trial in self._dynamic_trials if trial["state"] == JOB_STATE_NEW]
         for number, trial in self._do_evaluate(domain=domain, trials=trials):
             self._update_doc(number=number, trial=trial)
             yield trial
@@ -136,13 +134,9 @@ class PersistentTrials(Trials):
 
         # Do one minimization step and yield the result
         for trial in self._evaluate(domain=domain):
-            vals = trial['misc']['vals']
-            # unpack the one-element lists to values
-            # and skip over the 0-element lists
-            rval = {key: value[0] for key, value in vals.items() if value}
-
-            # Yield the result
-            yield trial["result"]["loss"], rval
+            self.refresh()
+            # yield the result
+            yield trial["result"]["loss"], base.spec_from_misc(trial["misc"])
 
     def fmin(self, fn, space, algo, max_evals, rseed=123):
         # Do all minimization steps

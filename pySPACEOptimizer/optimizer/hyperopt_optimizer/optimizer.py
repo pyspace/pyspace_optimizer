@@ -10,6 +10,7 @@ from Queue import Empty
 from multiprocessing import Manager
 
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
+from hyperopt.base import spec_from_misc
 
 import pySPACE
 from pySPACE.missions.nodes.decorators import ChoiceParameter
@@ -71,6 +72,18 @@ def __minimize(spec):
         }
 
 
+def transform_parameters(pipeline, parameters):
+    new_pipeline_space = {}
+    new_parameters = {}
+    for node in pipeline.nodes:
+        new_pipeline_space.update(PipelineNode.parameter_space(node))
+
+    for key, value in parameters.items():
+        if isinstance(new_pipeline_space[key], ChoiceParameter):
+            new_parameters[key] = new_pipeline_space[key].choices[value]
+    return new_parameters
+
+
 def optimize_pipeline(backend, queue, pipeline):
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
@@ -80,19 +93,30 @@ def optimize_pipeline(backend, queue, pipeline):
                                    "operation_results",
                                    "pySPACEOptimizer",
                                    pipeline_hash)
-    # Create the directory if not existing
-    if not os.path.isdir(base_result_dir):
-        os.makedirs(base_result_dir)
-
-    pipeline_space = [(pipeline, backend, base_result_dir), pipeline.pipeline_space]
-
     # Get the number of evaluations to make
     max_evaluations = task["max_evaluations"]
     passes = task["passes"]
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
+    pipeline_space = [(pipeline, backend, base_result_dir), pipeline.pipeline_space]
+    trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)  # Create the directory if not existing
+    evals_to_do = max_evaluations - len(trials)
+    # Reset the progress bar
+    progress = 0
+    progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
+                               maxval=evals_to_do,
+                               fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
+    if evals_to_do > 1:
+        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(1, passes + 1)]
+        if evaluations_per_pass[-1] < max_evaluations:
+            # our evaluations are not splittable by the passes
+            # add the remaining evaluations to the last pass
+            evaluations_per_pass[-1] += max_evaluations - evaluations_per_pass[-1]
+    else:
+        evaluations_per_pass = [max_evaluations]
 
-    #  Run the minimizer using two pass evaluation
-    trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)
+    if not os.path.isdir(base_result_dir):
+        os.makedirs(base_result_dir)
+
     if "restart_evaluation" in task and task["restart_evaluation"]:
         # Delete the old values and start over again
         try:
@@ -102,44 +126,27 @@ def optimize_pipeline(backend, queue, pipeline):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    if max_evaluations > 1:
-        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(1, passes + 1)]
-        if evaluations_per_pass[-1] < max_evaluations:
-            # our evaluations are not splittable by the passes
-            # add the remaining evaluations to the last pass
-            evaluations_per_pass[-1] += max_evaluations - evaluations_per_pass[-1]
-    else:
-        evaluations_per_pass = [1]
-
-    # Reset the progress bar
-    progress = 0
-    progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
-                               maxval=max_evaluations,
-                               fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
-
     # Do the evaluation
-    for evaluations in evaluations_per_pass:
-        # Log errors from here with special logger
-        with OutputLogger(std_out_logger=None,
-                          std_err_logger=pipeline.get_error_logger()):
+    # Log errors from here with special logger
+    with OutputLogger(std_out_logger=None,
+                      std_err_logger=pipeline.get_error_logger()):
+        for evaluations in evaluations_per_pass:
             for loss, parameters in trials.minimize(fn=__minimize,
                                                     space=pipeline_space,
                                                     algo=suggestion_algorithm,
                                                     max_evals=evaluations,
                                                     rseed=int(time.time())):
-                new_pipeline_space = {}
-                for node in pipeline.nodes:
-                    new_pipeline_space.update(PipelineNode.parameter_space(node))
-
-                for key, value in parameters.items():
-                    if isinstance(new_pipeline_space[key], ChoiceParameter):
-                        parameters[key] = new_pipeline_space[key].choices[value]
-
+                parameters = transform_parameters(pipeline, parameters)
                 # Update the progress bar
                 progress += 1
                 progress_bar.update(progress)
                 # And put the result into the queue
                 queue.put((loss, pipeline, parameters))
+    # and just to be sure, insert the best trial
+    best_trial = trials.best_trial
+    loss = best_trial["result"]["loss"]
+    parameters = transform_parameters(pipeline, spec_from_misc(best_trial["misc"]))
+    queue.put((loss, pipeline, parameters))
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
