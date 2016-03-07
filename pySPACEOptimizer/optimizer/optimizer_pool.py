@@ -28,9 +28,9 @@ class OptimizerPool(Pool):
             initargs = ()
         super(OptimizerPool, self).__init__(processes=processes, initializer=initializer, initargs=initargs,
                                             maxtasksperchild=1)
-        signal.signal(signal.SIGTERM, self._handle_signal)
-        signal.signal(signal.SIGINT, self._handle_signal)
-        signal.signal(signal.SIGQUIT, self._handle_signal)
+#        signal.signal(signal.SIGTERM, self._handle_signal)
+#        signal.signal(signal.SIGINT, self._handle_signal)
+#        signal.signal(signal.SIGQUIT, self._handle_signal)
 
     def apply(self, func, args=None, kwds=None):
         assert self._state == RUN
