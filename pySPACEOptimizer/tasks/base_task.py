@@ -37,8 +37,9 @@ def is_sink_node(node_name):
 class Task(dict):
 
     def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3,
-                 max_eval_time=0, metric="Percent_incorrect", source_node=None, sink_node="PerformanceSinkNode",
-                 whitelist=None, blacklist=None, forced_nodes=None, node_weights=None, parameter_ranges=None, **kwargs):
+                 max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
+                 sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
+                 parameter_ranges=None, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -46,14 +47,15 @@ class Task(dict):
         if whitelist is not None:
             for node in whitelist:
                 if node not in DEFAULT_NODE_MAPPING:
-                    raise ValueError("'%s' from white list is not a node" % node)
+                    raise ValueError("'{node}' from white list is not a node".format(node=node))
 
         if node_weights is not None:
-            for node, weight in node_weights.iteritems():
+            for node, weight in node_weights.items():
                 if node not in DEFAULT_NODE_MAPPING:
-                    raise ValueError("'%s' from weight dict is not a node" % node)
+                    raise ValueError("'{node}' from weight dict is not a node".format(node=node))
                 elif not isinstance(weight, (int, float)) or weight < 0:
-                    raise ValueError("Weight of Node '%s' from weight dict is not a positive number" % node)
+                    raise ValueError("Weight of Node '{node}' from weight dict is not a positive number".format(
+                        node=node))
 
         if not isinstance(class_labels, list):
             raise ValueError("Class labels must be a list of names")
@@ -62,7 +64,7 @@ class Task(dict):
             raise ValueError("The main class is not defined as a class label")
 
         if not is_sink_node(sink_node):
-            raise ValueError("The node '%s' is not a sink node" % sink_node)
+            raise ValueError("The node '{node}' is not a sink node".format(node=sink_node))
 
         super(Task, self).__init__({
             "data_set_path": input_path,
@@ -79,6 +81,7 @@ class Task(dict):
             "node_weights": dict(node_weights) if node_weights is not None else dict(),
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
+            "passes": passes,
         })
         super(Task, self).update(kwargs)
 
@@ -93,7 +96,7 @@ class Task(dict):
 
     def _log_task(self):
         format_ = pprint.pformat(self, indent=4)
-        self._logger.debug("Task '%s': " + format_, self)
+        self._logger.debug("Task '{task}': {format}".format(task=self, format=format_))
 
     def __getitem__(self, item):
         if item in self:
@@ -142,10 +145,10 @@ class Task(dict):
             elif self["source_node"] is None:
                 # Append all source nodes
                 nodes.update({
-                                 node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if is_source_node(node)
+                                 node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if is_source_node(node)
                                  })
         else:
-            nodes = {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.iteritems() if self.__valid_node(node)}
+            nodes = {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if self.__valid_node(node)}
 
         # remove blacklisted nodes
         if self["blacklist"]:
@@ -164,7 +167,7 @@ class Task(dict):
         :rtype: Dict
         """
         nodes_by_input_type = {}
-        for node_name, node in self.nodes.iteritems():
+        for node_name, node in self.nodes.items():
             for input_type in node.get_input_types():
                 if input_type not in nodes_by_input_type:
                     nodes_by_input_type[input_type] = []
@@ -184,15 +187,16 @@ class Task(dict):
         for file_ in glob.glob(data_set_dir):
             data_set_type = BaseDataset.load_meta_data(file_)["type"]
             if old_data_set_type is not None and data_set_type != old_data_set_type:
-                raise TypeError("Inconsistent Data sets found: %s != %s" % (old_data_set_type, data_set_type))
+                raise TypeError("Inconsistent Data sets found: {old_type} != {new_type}".format(
+                    old_type=old_data_set_type, new_type=data_set_type))
             old_data_set_type = data_set_type
         if old_data_set_type is None:
-            raise AttributeError("No data sets found at '%s'" % data_set_dir)
+            raise AttributeError("No data sets found at '{dir}'".format(dir=data_set_dir))
         return old_data_set_type.title().replace("_", "")
 
     def weighted_nodes_by_input_type(self):
         weighted_nodes = {}
-        for input_type, nodes in self.nodes_by_input_type.iteritems():
+        for input_type, nodes in self.nodes_by_input_type.items():
             nodes.sort(key=lambda node: self.node_weight(node), reverse=True)
             weighted_nodes[input_type] = nodes
         return weighted_nodes

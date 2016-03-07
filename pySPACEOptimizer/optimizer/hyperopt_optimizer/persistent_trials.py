@@ -1,14 +1,14 @@
-import logging
 import os
 import sys
 import time
 
-from hyperopt import Trials, Domain, base, tpe
+from hyperopt import Trials, Domain, base
 
 from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 
 try:
+    # noinspection PyCompatibility
     from cPickle import load, dump, HIGHEST_PROTOCOL
 except ImportError:
     from pickle import load, dump, HIGHEST_PROTOCOL
@@ -20,7 +20,7 @@ def evaluate_trial(domain, trials, number, trial):
         ctrl = base.Ctrl(trials, current_trial=trial)
         try:
             result = domain.evaluate(spec, ctrl)
-        except Exception, e:
+        except Exception as e:
             trial['state'] = base.JOB_STATE_ERROR
             trial['misc']['error'] = (str(type(e)), str(e))
         else:
@@ -181,7 +181,7 @@ class MultiprocessingPersistentTrials(PersistentTrials):
 
     async = False
 
-    def _do_evaluate(self, domain , trials):
+    def _do_evaluate(self, domain, trials):
         # Every worker just has to handle one task per default
         pool = OptimizerPool()
 

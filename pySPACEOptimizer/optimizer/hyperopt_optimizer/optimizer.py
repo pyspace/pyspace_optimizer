@@ -30,7 +30,7 @@ def __minimize(spec):
     pipeline, backend, base_result_dir = spec[0]
     task = pipeline.configuration
     logger = pipeline.get_logger()
-    parameter_ranges = {param: [value] for param, value in spec[1].iteritems()}
+    parameter_ranges = {param: [value] for param, value in spec[1].items()}
     # noinspection PyBroadException
     try:
         # Execute the pipeline
@@ -45,7 +45,7 @@ def __minimize(spec):
             summary = PerformanceResultSummary.from_csv(result_file)
             # Calculate the mean of all data sets using the given metric
             if task["metric"] not in summary:
-                raise ValueError("Metric '%s' not found in result data set" % task["metric"])
+                raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
 
             mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
 
@@ -72,7 +72,7 @@ def __minimize(spec):
 
 def optimize_pipeline(backend, queue, pipeline):
 
-    def _do_pass(evaluations):
+    def _do_pass():
         # Log errors from here with special logger
         with OutputLogger(std_out_logger=pipeline.get_logger(),
                           std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
@@ -86,7 +86,7 @@ def optimize_pipeline(backend, queue, pipeline):
                 for node in pipeline.nodes:
                     new_pipeline_space.update(PipelineNode.parameter_space(node))
 
-                for key, value in parameters.iteritems():
+                for key, value in parameters.items():
                     if isinstance(new_pipeline_space[key], ChoiceParameter):
                         parameters[key] = new_pipeline_space[key].choices[value]
 
@@ -109,6 +109,7 @@ def optimize_pipeline(backend, queue, pipeline):
 
     # Get the number of evaluations to make
     max_evaluations = task["max_evaluations"]
+    passes = task["passes"]
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
 
     #  Run the minimizer using two pass evaluation
@@ -122,18 +123,17 @@ def optimize_pipeline(backend, queue, pipeline):
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
-    # if max_evaluations > 1 to evaluation with two-pass
-    # else do single pass evaluation
     if max_evaluations > 1:
-        # first pass
-        # Train with max_evaluations - 1 runs..
-        _do_pass(evaluations=max_evaluations - 1)
-        # second pass
-        # finally evaluate with one evaluation
-        _do_pass(evaluations=1)
+        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(passes)]
+        if evaluations_per_pass[-1] < max_evaluations:
+            # We do have a odd number of evaluations do the eval in the last pass
+            evaluations_per_pass[-1] += 1
     else:
-        # simply to the evaluation
-        _do_pass(evaluations=max_evaluations)
+        evaluations_per_pass = [1]
+
+    # Do the evaluation
+    for evaluations in evaluations_per_pass:
+        _do_pass()
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
