@@ -124,7 +124,7 @@ def optimize_pipeline(backend, queue, pipeline):
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
 
     if max_evaluations > 1:
-        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(passes)]
+        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(1, passes + 1)]
         if evaluations_per_pass[-1] < max_evaluations:
             # our evaluations are not splittable by the passes
             # add the remaining evaluations to the last pass

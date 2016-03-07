@@ -128,7 +128,7 @@ class PipelineNode(object):
         """
         result = {"node": self.name}
         if self.optimization_parameters:
-            result["parameters"] = {param: "$\{{name}\}".format(name=self._make_parameter_name(param))
+            result["parameters"] = {param: "${{{name}}}".format(name=self._make_parameter_name(param))
                                     for param in self.optimization_parameters}
         return result
 
