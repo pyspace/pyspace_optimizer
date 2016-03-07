@@ -14,6 +14,7 @@ from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 import pySPACE
 from pySPACE.missions.nodes.decorators import ChoiceParameter
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
+from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
@@ -21,7 +22,7 @@ from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
-from pySPACEOptimizer.utils import OutputLogger
+from pySPACEOptimizer.utils import OutputLogger, FileLikeLogger
 
 SENTINEL_VALUE = None
 
@@ -71,28 +72,6 @@ def __minimize(spec):
 
 
 def optimize_pipeline(backend, queue, pipeline):
-
-    def _do_pass():
-        # Log errors from here with special logger
-        with OutputLogger(std_out_logger=pipeline.get_logger(),
-                          std_err_logger=pipeline.get_error_logger()):
-            for loss, parameters in trials.minimize(fn=__minimize,
-                                                    space=pipeline_space,
-                                                    algo=suggestion_algorithm,
-                                                    max_evals=evaluations,
-                                                    rseed=int(time.time())):
-                # Replace indexes of choice parameters with the selected values
-                new_pipeline_space = {}
-                for node in pipeline.nodes:
-                    new_pipeline_space.update(PipelineNode.parameter_space(node))
-
-                for key, value in parameters.items():
-                    if isinstance(new_pipeline_space[key], ChoiceParameter):
-                        parameters[key] = new_pipeline_space[key].choices[value]
-
-                # And put the result into the queue
-                queue.put((loss, pipeline, parameters))
-
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
     task = pipeline.configuration
@@ -132,9 +111,35 @@ def optimize_pipeline(backend, queue, pipeline):
     else:
         evaluations_per_pass = [1]
 
+    # Reset the progress bar
+    progress = 0
+    progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
+                               maxval=max_evaluations,
+                               fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
+
     # Do the evaluation
     for evaluations in evaluations_per_pass:
-        _do_pass()
+        # Log errors from here with special logger
+        with OutputLogger(std_out_logger=None,
+                          std_err_logger=pipeline.get_error_logger()):
+            for loss, parameters in trials.minimize(fn=__minimize,
+                                                    space=pipeline_space,
+                                                    algo=suggestion_algorithm,
+                                                    max_evals=evaluations,
+                                                    rseed=int(time.time())):
+                new_pipeline_space = {}
+                for node in pipeline.nodes:
+                    new_pipeline_space.update(PipelineNode.parameter_space(node))
+
+                for key, value in parameters.items():
+                    if isinstance(new_pipeline_space[key], ChoiceParameter):
+                        parameters[key] = new_pipeline_space[key].choices[value]
+
+                # Update the progress bar
+                progress += 1
+                progress_bar.update(progress)
+                # And put the result into the queue
+                queue.put((loss, pipeline, parameters))
 
 
 class HyperoptOptimizer(PySPACEOptimizer):

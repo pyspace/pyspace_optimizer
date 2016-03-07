@@ -39,10 +39,6 @@ class PersistentTrials(Trials):
         super(PersistentTrials, self).__init__(exp_key=exp_key, refresh=False)
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()
-        # Set up progress bar
-        self._progress = 0
-        self._widgets = ['Optimization progress: ', Percentage(), ' ', Bar()]
-        self._progress_bar = None
         if refresh:
             self.refresh()
 
@@ -99,9 +95,6 @@ class PersistentTrials(Trials):
     def _update_doc(self, number, trial):
         self._dynamic_trials[number] = trial
         self.refresh()
-        # Update the progress bar
-        self._progress += 1
-        self._progress_bar.update(self._progress)
 
     def _do_evaluate(self, domain, trials):
         for number, trial in enumerate(trials):
@@ -111,12 +104,6 @@ class PersistentTrials(Trials):
     def _evaluate(self, domain):
         # Get the trials to evaluate
         trials = self._sorted_trials()
-
-        # Reset the progress bar
-        self._progress = 0
-        self._progress_bar = ProgressBar(widgets=self._widgets,
-                                         maxval=len(trials),
-                                         fd=sys.stdout)
         for number, trial in self._do_evaluate(domain=domain, trials=trials):
             self._update_doc(number=number, trial=trial)
             yield trial
