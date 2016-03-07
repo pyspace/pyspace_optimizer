@@ -75,7 +75,7 @@ def optimize_pipeline(backend, queue, pipeline):
     def _do_pass():
         # Log errors from here with special logger
         with OutputLogger(std_out_logger=pipeline.get_logger(),
-                          std_err_logger=logging.getLogger("pySPACEOptimizer.pipelines.errors")):
+                          std_err_logger=pipeline.get_error_logger()):
             for loss, parameters in trials.minimize(fn=__minimize,
                                                     space=pipeline_space,
                                                     algo=suggestion_algorithm,

@@ -153,6 +153,9 @@ class Pipeline(object):
     def get_logger(self):
         return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__, object=self))
 
+    def get_error_logger(self):
+        return logging.getLogger("pySPACEOptimizer.pipelines.errors")
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._logger = self.get_logger()
