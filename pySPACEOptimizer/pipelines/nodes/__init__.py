@@ -106,6 +106,8 @@ class PipelineNode(object):
                                 elif isinstance(default, int):
                                     # Add a Q-Normal distribution
                                     space.add(QNormalParameter(param, mu=default, sigma=1, q=1))
+                                elif isinstance(default, (list, tuple)):
+                                    space.add(ChoiceParameter(param, choices=default))
         else:
             space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE))
         # Update with the default values
@@ -126,7 +128,7 @@ class PipelineNode(object):
         """
         result = {"node": self.name}
         if self.optimization_parameters:
-            result["parameters"] = {param: "${%s}" % self._make_parameter_name(param)
+            result["parameters"] = {param: "$\{{name}\}".format(name=self._make_parameter_name(param))
                                     for param in self.optimization_parameters}
         return result
 
