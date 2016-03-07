@@ -1,12 +1,12 @@
-import logging
 import os
+import signal
 import sys
 import time
 
-from hyperopt import Trials, Domain, base, tpe
+from hyperopt import Trials, Domain, base
 
+from pySPACE.multiprocessing.pool import PySPACEPool
 from pySPACE.tools.progressbar import ProgressBar, Bar, Percentage
-from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 
 try:
     from cPickle import load, dump, HIGHEST_PROTOCOL
@@ -181,9 +181,9 @@ class MultiprocessingPersistentTrials(PersistentTrials):
 
     async = False
 
-    def _do_evaluate(self, domain , trials):
+    def _do_evaluate(self, domain, trials):
         # Every worker just has to handle one task per default
-        pool = OptimizerPool()
+        pool = PySPACEPool()
 
         # Create the arguments passed to the evaluation method
         args = [(domain, self, number, trial) for number, trial in enumerate(trials)]
@@ -195,16 +195,13 @@ class MultiprocessingPersistentTrials(PersistentTrials):
                 # because pySPACE names the result folders with timestamps
                 time.sleep(1)
 
-        # noinspection PyProtectedMember
-        chunksize = int(len(args) / pool._processes) if len(args) > pool._processes else 1
-
         # noinspection PyBroadException
         try:
-            for number, trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
+            for number, trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args()):
                 yield number, trial
             # Close the pool
             pool.close()
-        except:
+        except Exception, e:
             pool.terminate()
         finally:
             pool.join()

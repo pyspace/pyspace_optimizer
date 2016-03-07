@@ -4,6 +4,7 @@ import logging
 import numpy
 import os
 import shutil
+import signal
 import time
 import warnings
 from Queue import Empty
@@ -13,10 +14,10 @@ from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
 from pySPACE.missions.nodes.decorators import ChoiceParameter
+from pySPACE.multiprocessing.pool import PySPACEPool
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials
-from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
@@ -154,7 +155,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def optimize(self):
         self._logger.info("Optimizing Pipelines")
         self._logger.debug("Creating optimization pool")
-        pool = OptimizerPool()
+        pool = PySPACEPool()
 
         # Enqueue the evaluations and save the results
         results = [pool.apply_async(func=optimize_pipeline, args=(self._backend, self._queue, pipeline))

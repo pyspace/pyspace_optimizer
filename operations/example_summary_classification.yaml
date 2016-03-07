@@ -6,8 +6,9 @@ main_class: Target
 max_pipeline_length: 4
 max_evaluations: 1
 restart_evaluation: true
+#max_eval_time: 10  # seconds
 source_node: FeatureVectorSourceNode
-whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]
+whitelist: [SorSvmNode]
 parameter_ranges:
     - node: SorSvmNode
       parameters:

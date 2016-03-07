@@ -42,7 +42,7 @@ loggers:
   "":
     level: ERROR
     handlers:
-      - null_handler
+      - console
 
   pySPACEOptimizer:
     level: INFO
