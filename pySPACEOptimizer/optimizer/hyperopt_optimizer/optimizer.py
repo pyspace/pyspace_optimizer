@@ -93,26 +93,6 @@ def optimize_pipeline(backend, queue, pipeline):
                                    "operation_results",
                                    "pySPACEOptimizer",
                                    pipeline_hash)
-    # Get the number of evaluations to make
-    max_evaluations = task["max_evaluations"]
-    passes = task["passes"]
-    suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
-    pipeline_space = [(pipeline, backend, base_result_dir), pipeline.pipeline_space]
-    trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)  # Create the directory if not existing
-    evals_to_do = max_evaluations - len(trials)
-    # Reset the progress bar
-    progress = 0
-    progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
-                               maxval=evals_to_do,
-                               fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
-    if evals_to_do > 1:
-        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(1, passes + 1)]
-        if evaluations_per_pass[-1] < max_evaluations:
-            # our evaluations are not splittable by the passes
-            # add the remaining evaluations to the last pass
-            evaluations_per_pass[-1] += max_evaluations - evaluations_per_pass[-1]
-    else:
-        evaluations_per_pass = [max_evaluations]
 
     if not os.path.isdir(base_result_dir):
         os.makedirs(base_result_dir)
@@ -122,9 +102,33 @@ def optimize_pipeline(backend, queue, pipeline):
         try:
             shutil.rmtree(base_result_dir)
             os.makedirs(base_result_dir)
-            trials.delete_all()
         except OSError as exc:
             pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
+
+    # Get the number of evaluations to make
+    max_evaluations = task["max_evaluations"]
+    passes = task["passes"]
+    suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
+    pipeline_space = [(pipeline, backend, base_result_dir), pipeline.pipeline_space]
+
+    # Create the trials object loading the persistent trials
+    trials = MultiprocessingPersistentTrials(trials_dir=base_result_dir)
+
+    evaluations_to_do = max_evaluations - len(trials)
+    if evaluations_to_do > 1:
+        evaluations_per_pass = [int(max_evaluations / passes) * i for i in range(1, passes + 1)]
+        if evaluations_per_pass[-1] < max_evaluations:
+            # our evaluations are not splittable by the passes
+            # add the remaining evaluations to the last pass
+            evaluations_per_pass[-1] += max_evaluations - evaluations_per_pass[-1]
+    else:
+        evaluations_per_pass = [max_evaluations]
+
+    # Reset the progress bar
+    progress = 0
+    progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
+                               maxval=evaluations_to_do,
+                               fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
 
     # Do the evaluation
     # Log errors from here with special logger
@@ -142,6 +146,7 @@ def optimize_pipeline(backend, queue, pipeline):
                 progress_bar.update(progress)
                 # And put the result into the queue
                 queue.put((loss, pipeline, parameters))
+
     # and just to be sure, insert the best trial
     best_trial = trials.best_trial
     loss = best_trial["result"]["loss"]
