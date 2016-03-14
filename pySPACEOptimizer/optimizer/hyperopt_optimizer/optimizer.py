@@ -10,17 +10,15 @@ from Queue import Empty
 from multiprocessing import Manager
 
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
-from hyperopt.base import spec_from_misc
 
 import pySPACE
-from pySPACE.missions.nodes.decorators import ChoiceParameter
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
-from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
+from pySPACEOptimizer.pipelines import Pipeline
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 from pySPACEOptimizer.utils import OutputLogger, FileLikeLogger
@@ -72,18 +70,6 @@ def __minimize(spec):
         }
 
 
-def transform_parameters(pipeline, parameters):
-    new_pipeline_space = {}
-    new_parameters = parameters
-    for node in pipeline.nodes:
-        new_pipeline_space.update(PipelineNode.parameter_space(node))
-
-    for key, value in parameters.items():
-        if isinstance(new_pipeline_space[key], ChoiceParameter):
-            new_parameters[key] = new_pipeline_space[key].choices[value]
-    return new_parameters
-
-
 def optimize_pipeline(backend, queue, pipeline):
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
@@ -127,7 +113,7 @@ def optimize_pipeline(backend, queue, pipeline):
     # Reset the progress bar
     progress = 0
     progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
-                               maxval=evaluations_to_do,
+                               maxval=max_evaluations - trials.num_finished,
                                fd=FileLikeLogger(logger=pipeline.get_logger(), log_level=logging.INFO))
 
     # Do the evaluation
@@ -135,23 +121,20 @@ def optimize_pipeline(backend, queue, pipeline):
     with OutputLogger(std_out_logger=None,
                       std_err_logger=pipeline.get_error_logger()):
         for evaluations in evaluations_per_pass:
-            for loss, parameters in trials.minimize(fn=__minimize,
-                                                    space=pipeline_space,
-                                                    algo=suggestion_algorithm,
-                                                    max_evals=evaluations,
-                                                    rseed=int(time.time())):
-                parameters = transform_parameters(pipeline, parameters)
+            for trial in trials.minimize(fn=__minimize,
+                                         space=pipeline_space,
+                                         algo=suggestion_algorithm,
+                                         max_evals=evaluations,
+                                         rseed=int(time.time())):
                 # Update the progress bar
                 progress += 1
                 progress_bar.update(progress)
                 # And put the result into the queue
-                queue.put((loss, pipeline, parameters))
+                queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
 
     # and just to be sure, insert the best trial
     best_trial = trials.best_trial
-    loss = best_trial["result"]["loss"]
-    parameters = transform_parameters(pipeline, spec_from_misc(best_trial["misc"]))
-    queue.put((loss, pipeline, parameters))
+    queue.put((best_trial.loss, pipeline, best_trial.parameters(pipeline)))
 
 
 class HyperoptOptimizer(PySPACEOptimizer):

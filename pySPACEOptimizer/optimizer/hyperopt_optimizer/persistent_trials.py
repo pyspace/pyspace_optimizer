@@ -1,15 +1,40 @@
 import os
 import time
 
-from hyperopt import Trials, Domain, base, JOB_STATE_NEW
+from hyperopt import Trials, Domain, base, JOB_STATE_NEW, JOB_STATE_DONE
 
+from pySPACE.missions.nodes.decorators import ChoiceParameter
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
+from pySPACEOptimizer.pipelines import PipelineNode
 
 try:
     # noinspection PyCompatibility
     from cPickle import load, dump, HIGHEST_PROTOCOL
 except ImportError:
     from pickle import load, dump, HIGHEST_PROTOCOL
+
+
+class Trial(object):
+    def __init__(self, loss, parameters):
+        self.__loss = loss
+        self.__parameters = parameters
+
+    @property
+    def loss(self):
+        return self.__loss
+
+    def parameters(self, pipeline):
+        new_pipeline_space = {}
+        new_parameters = self.__parameters
+        for node in pipeline.nodes:
+            new_pipeline_space.update(PipelineNode.parameter_space(node))
+
+        for key, value in self.__parameters.items():
+            if isinstance(new_pipeline_space[key], ChoiceParameter):
+                new_parameters[key] = new_pipeline_space[key].choices[value]
+            else:
+                new_parameters[key] = value
+        return new_parameters
 
 
 def evaluate_trial(domain, trials, number, trial):
@@ -136,7 +161,7 @@ class PersistentTrials(Trials):
         for trial in self._evaluate(domain=domain):
             self.refresh()
             # yield the result
-            yield trial["result"]["loss"], base.spec_from_misc(trial["misc"])
+            yield Trial(trial["result"]["loss"], base.spec_from_misc(trial["misc"]))
 
     def fmin(self, fn, space, algo, max_evals, rseed=123):
         # Do all minimization steps
@@ -151,6 +176,15 @@ class PersistentTrials(Trials):
         # Remove the progress bar as it is not pickable
         result["_progress_bar"] = None
         return result
+
+    @property
+    def best_trial(self):
+        best_trial = super(PersistentTrials, self).best_trial
+        return Trial(best_trial["result"]["loss"], base.spec_from_misc(best_trial["misc"]))
+
+    @property
+    def num_finished(self):
+        return self.count_by_state_unsynced(JOB_STATE_DONE)
 
 
 def trials_wrapper(args):
