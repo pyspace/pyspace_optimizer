@@ -3,7 +3,7 @@
 from hyperopt import hp
 
 from pySPACE.missions.nodes.decorators import UniformParameter, QUniformParameter, NormalParameter, QNormalParameter, \
-    QLogNormalParameter, LogNormalParameter, QLogUniformParameter, LogUniformParameter
+    QLogNormalParameter, LogNormalParameter, QLogUniformParameter, LogUniformParameter, ChoiceParameter
 from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
 
 
@@ -11,6 +11,17 @@ class HyperoptNode(PipelineNode):
 
     def __init__(self, node_name, task):
         super(HyperoptNode, self).__init__(node_name=node_name, task=task)
+
+    def _handle_parameter(self, name, parameter):
+        if isinstance(parameter, NormalParameter):
+            value = self._handle_normal_parameter(name, parameter)
+        elif isinstance(parameter, UniformParameter):
+            value = self._handle_uniform_parameter(name, parameter)
+        elif isinstance(parameter, ChoiceParameter):
+            value = self._handle_choice_parameter(name, parameter)
+        else:
+            value = parameter
+        return value
 
     def _handle_normal_parameter(self, name, parameter):
         if isinstance(parameter, QLogNormalParameter):
@@ -34,6 +45,10 @@ class HyperoptNode(PipelineNode):
 
     def _handle_choice_parameter(self, name, parameter):
         return hp.choice(name, parameter.choices)
+
+    def parameter_space(self):
+        return {name: self._handle_parameter(name, parameter)
+                for name, parameter in super(HyperoptNode, self).parameter_space().items()}
 
 
 class HyperoptSinkNode(PipelineSinkNode):

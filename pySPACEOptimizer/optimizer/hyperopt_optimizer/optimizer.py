@@ -74,7 +74,7 @@ def __minimize(spec):
 
 def transform_parameters(pipeline, parameters):
     new_pipeline_space = {}
-    new_parameters = {}
+    new_parameters = parameters
     for node in pipeline.nodes:
         new_pipeline_space.update(PipelineNode.parameter_space(node))
 
