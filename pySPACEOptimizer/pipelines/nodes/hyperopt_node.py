@@ -3,7 +3,7 @@
 from hyperopt import hp
 
 from pySPACE.missions.nodes.decorators import UniformParameter, QUniformParameter, NormalParameter, QNormalParameter, \
-    ChoiceParameter, QLogNormalParameter, LogNormalParameter, QLogUniformParameter, LogUniformParameter
+    QLogNormalParameter, LogNormalParameter, QLogUniformParameter, LogUniformParameter
 from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
 
 
@@ -12,8 +12,7 @@ class HyperoptNode(PipelineNode):
     def __init__(self, node_name, task):
         super(HyperoptNode, self).__init__(node_name=node_name, task=task)
 
-    @staticmethod
-    def _handle_normal_parameter(name, parameter):
+    def _handle_normal_parameter(self, name, parameter):
         if isinstance(parameter, QLogNormalParameter):
             return hp.qlognormal(name, parameter.mu, parameter.sigma, parameter.q)
         elif isinstance(parameter, LogNormalParameter):
@@ -23,8 +22,7 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, NormalParameter):
             return hp.normal(name, parameter.mu, parameter.sigma)
 
-    @staticmethod
-    def _handle_uniform_parameter(name, parameter):
+    def _handle_uniform_parameter(self, name, parameter):
         if isinstance(parameter, QLogUniformParameter):
             return hp.qloguniform(name, parameter.min, parameter.max, parameter.q)
         elif isinstance(parameter, LogUniformParameter):
@@ -34,16 +32,8 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, UniformParameter):
             return hp.uniform(name, parameter.min, parameter.max)
 
-    def parameter_space(self):
-        space = {}
-        for key, value in super(HyperoptNode, self).parameter_space().iteritems():
-            if isinstance(value, NormalParameter):
-                space[key] = self._handle_normal_parameter(key, value)
-            elif isinstance(value, UniformParameter):
-                space[key] = self._handle_uniform_parameter(key, value)
-            elif isinstance(value, ChoiceParameter):
-                space[key] = hp.choice(key, value.choices)
-        return space
+    def _handle_choice_parameter(self, name, parameter):
+        return hp.choice(name, parameter.choices)
 
 
 class HyperoptSinkNode(PipelineSinkNode):

@@ -3,7 +3,7 @@ import inspect
 
 from pySPACE.missions import nodes
 from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, ChoiceParameter, NormalParameter, QNormalParameter, \
-    BooleanParameter
+    BooleanParameter, UniformParameter, ParameterDecorator
 
 
 class PipelineNode(object):
@@ -70,10 +70,37 @@ class PipelineNode(object):
                                                                    arg not in self._values and
                                                                    isinstance(default, (bool, float, int))])
             else:
-                self.__optimization_parameters = set([parameter.parameter_name for parameter in
-                                                      getattr(self.class_, PARAMETER_ATTRIBUTE)])
+                self.__optimization_parameters = set([self._handle_parameter(parameter)[0]
+                                                      for parameter in getattr(self.class_, PARAMETER_ATTRIBUTE)])
             self.__optimization_parameters.update([parameter.parameter_name for parameter in self._values])
         return self.__optimization_parameters
+
+    def _handle_parameter(self, parameter):
+        name = self._make_parameter_name(parameter.parameter_name)
+        if isinstance(parameter, NormalParameter):
+            value = self._handle_normal_parameter(name, parameter)
+        elif isinstance(parameter, UniformParameter):
+            value = self._handle_uniform_parameter(name, parameter)
+        elif isinstance(parameter, ChoiceParameter):
+            value = self._handle_choice_parameter(name, parameter)
+        else:
+            value = parameter
+        return (name, value)
+
+    def _handle_normal_parameter(self, name, parameter):
+        return parameter
+
+    def _handle_uniform_parameter(self, name, parameter):
+        return parameter
+
+    def _handle_choice_parameter(self, name, parameter):
+        choices = []
+        for choice in parameter.choices:
+            if isinstance(choice, (list, tuple)) and isinstance(choice[1], ParameterDecorator):
+                choices.append((choice[0], self._handle_parameter(choice[1])))
+            else:
+                choices.append(choice)
+        return ChoiceParameter(name, choices)
 
     def parameter_space(self):
         """
@@ -114,8 +141,7 @@ class PipelineNode(object):
         values = copy.copy(self._values)
         values.update(space)
         # Create a dictionary containing the optimization name as a key
-        return {self._make_parameter_name(parameter.parameter_name): parameter
-                for parameter in values}
+        return {name: value for name, value in [self._handle_parameter(parameter) for parameter in values]}
 
     def as_dictionary(self):
         """
