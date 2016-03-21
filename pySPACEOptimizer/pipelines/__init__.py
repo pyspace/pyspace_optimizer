@@ -106,17 +106,13 @@ class Pipeline(object):
         :rtype: unicode
         """
         # noinspection PyBroadException
-        try:
-            backend = pySPACE.create_backend(backend)
-            operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
-                                                 base_result_dir=base_result_dir)
-            with open(os.devnull, "w") as output:
-                with OutputRedirecter(std_out=output, std_err=sys.stderr):
-                    pySPACE.run_operation(backend, operation)
-            return operation.get_output_directory()
-        except:
-            self._logger.exception("Error in '%s':", self)
-            return None
+        backend = pySPACE.create_backend(backend)
+        operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
+                                             base_result_dir=base_result_dir)
+        with open(os.devnull, "w") as output:
+            with OutputRedirecter(std_out=output, std_err=sys.stderr):
+                pySPACE.run_operation(backend, operation)
+        return operation.get_output_directory()
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):

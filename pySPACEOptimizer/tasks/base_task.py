@@ -226,4 +226,6 @@ class Task(dict):
 
         if "class_labels" in node.parameters:
             result["class_labels"] = [self["class_labels"]]
+        if "erp_class_label" in node.parameters:
+            result["erp_class_label"] = [self["main_class"]]
         return result

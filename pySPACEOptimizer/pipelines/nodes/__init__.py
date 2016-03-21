@@ -123,7 +123,7 @@ class PipelineNode(object):
         uniqueness.
 
         :return: The specification of the node as a dictionary for pySPACE.
-        :rtype: dict[str, object]
+        :rtype: dict[str, str|bool|float|int|dict[str, str|bool|float|int]]
         """
         result = {"node": self.name}
         if self.optimization_parameters:
@@ -171,17 +171,18 @@ class PipelineSinkNode(PipelineNode):
 
     @property
     def optimization_parameters(self):
-        return []
+        return [parameter.parameter_name for parameter in self._values]
 
     def as_dictionary(self):
-        return {"node": self.name,
-                "parameters": {
-                    "ir_class": self._main_class,
-                    "classes_names": self._class_labels
-                }}
+        result = super(PipelineSinkNode, self).as_dictionary()
+        if "parameters" not in result:
+            result["parameters"] = {}
+        result["parameters"]["ir_class"] = self._main_class
+        result["parameters"]["classes_names"] = self._class_labels
+        return result
 
 
 class PipelineSourceNode(PipelineNode):
     @property
     def optimization_parameters(self):
-        return []
+        return [parameter.parameter_name for parameter in self._values]

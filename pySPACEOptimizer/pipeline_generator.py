@@ -63,18 +63,13 @@ class PipelineGenerator(object):
             raise StopIteration()
 
         array = pipeline_array[:index + 1]
-        types = pipeline_types[:index + 1]
 
         for node in self._nodes[input_type]:
             # Append only if:
             # - it is the first node and it's a source node
             # - it's not the first node and not a splitter node, not a sink node
             #   and the type is not contained in the pipeline
-            if (first_node and is_source_node(node)) or (
-                    not first_node and
-                    not is_splitter_node(node) and
-                    not is_sink_node(node) and
-                    get_node_type(node) not in types):
+            if (first_node and is_source_node(node)) or (not first_node and not is_sink_node(node)):
                 if node not in array:
                     self._logger.debug("\t" * index + "Appending '%s'", node)
                     pipeline_array[index] = node
