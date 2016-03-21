@@ -1,13 +1,65 @@
 type: classification
 input_path: eeg_data
 optimizer: HyperoptOptimizer
+
 class_labels: [Standard, Target]
 main_class: Target
-max_pipeline_length: 4
+
+source_node: TimeSeriesSourceNode
+sink_node: PerformanceSinkNode
+metirc: Balanced_accuracy
+
+max_pipeline_length: 11
 max_evaluations: 10
 passes: 5
 restart_evaluation: true
-source_node: Stream2TimeSeriesSourceNode
+
 whitelist:
-  - CustomChannelWiseFeatureNode
-  - OcRmmNode
+  - TimeSeriesSourceNode
+  - LocalStandardizationNode
+  - DecimationFIRNode
+  - FFTBandPassFilterNode
+  - CrossValidationSplitterNode
+  - XDAWNNode
+  - LocalStraightLineFeatureNode
+  - GaussianFeatureNormalizationNode
+  - LibSVMClassifierNode
+  - PerformanceSinkNode
+
+parameter_ranges:
+  - node: DecimationFIRNode
+    parameters:
+      target_frequency: 25
+      comp_type: normal
+
+  - node: FFTBandPassFilterNode
+    parameters:
+      pass_band: [[0.0, 4.0]]
+
+  - node: CrossValidationSplitterNode
+    parameters:
+      splits: 5
+      stratified: True
+
+  - node: xDAWNNode
+    parameters:
+      store: False
+      visualize_pattern: False
+      retained_channels: 8
+
+  - node: LocalStraightLineFeatureNode
+    parameters:
+      segment_width: 400
+      stepsize: 120
+      coefficients_used: [[1]]
+
+  - node: LibSVMClassifierNode
+    parameters:
+      complexity: [1., .1, .01, .001, .0001, .00001, .000001]
+      weight: [[1.0, 5.0]]
+      kernel_type: LINEAR
+      max_iterations: 50
+
+  - node: ThresholdOptimizationNode
+    parameters:
+      metric: Balaced_accurarcy
