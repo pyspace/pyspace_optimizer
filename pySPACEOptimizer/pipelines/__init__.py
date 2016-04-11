@@ -92,6 +92,11 @@ class Pipeline(object):
         operation_spec["base_file"] = "\n".join(lines)
         return operation_spec
 
+    @property
+    def base_result_dir(self):
+        pipeline_hash = str(hash(self)).replace("-", "_")
+        return os.path.join(pySPACE.configuration.storage, "operation_results", "pySPACEOptimizer", pipeline_hash)
+
     def execute(self, parameter_ranges=None, backend=u"serial", base_result_dir=None):
         """
         Executes the pipeline using the given backend.

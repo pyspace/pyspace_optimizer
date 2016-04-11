@@ -82,6 +82,8 @@ def main(args=None):
             logger.info("Best result will be stored as: %s" % arguments.result)
 
             optimizer = optimizer_factory(task, arguments.backend, arguments.result)
+            if optimizer is None:
+                raise Exception("Optimizer %s not found!" % task["optimizer"])
             best_result = optimizer.optimize()
             logger.info("Done!")
             logger.info("Best result found: %s", best_result)

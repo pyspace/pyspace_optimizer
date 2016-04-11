@@ -1,6 +1,6 @@
 type: classification
 input_path: example_summary_split
-optimizer: HyperoptOptimizer
+optimizer: SerialHyperoptOptimizerSerialTrials
 class_labels: [Standard, Target]
 main_class: Target
 max_pipeline_length: 4

@@ -173,8 +173,6 @@ class PersistentTrials(Trials):
 
     def __getstate__(self):
         result = self.__dict__.copy()
-        # Remove the progress bar as it is not pickable
-        result["_progress_bar"] = None
         return result
 
     @property
