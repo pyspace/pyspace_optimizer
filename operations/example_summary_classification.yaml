@@ -4,8 +4,10 @@ optimizer: SerialHyperoptOptimizerSerialTrials
 class_labels: [Standard, Target]
 main_class: Target
 max_pipeline_length: 4
-max_evaluations: 4
+
+evaluations_per_pass: 2
 passes: 2
+
 restart_evaluation: true
 source_node: FeatureVectorSourceNode
 whitelist: [SorSvmNode, GaussianFeatureNormalizationNode]

@@ -36,7 +36,7 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, class_labels, main_class, optimizer="PySPACEOptimizer", max_pipeline_length=3,
+    def __init__(self, input_path, class_labels, main_class, evaluations_per_pass, optimizer="PySPACEOptimizer", max_pipeline_length=3,
                  max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, **kwargs):
@@ -67,6 +67,8 @@ class Task(dict):
             raise ValueError("The node '{node}' is not a sink node".format(node=sink_node))
 
         super(Task, self).__init__({
+            "passes": passes,
+            "evaluations_per_pass": evaluations_per_pass,
             "data_set_path": input_path,
             "max_pipeline_length": max_pipeline_length,
             "source_node": source_node,
@@ -81,7 +83,6 @@ class Task(dict):
             "node_weights": dict(node_weights) if node_weights is not None else dict(),
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
-            "passes": passes,
         })
         super(Task, self).update(kwargs)
 

@@ -69,16 +69,12 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
     task = pipeline.configuration
-
     if not os.path.isdir(pipeline.base_result_dir):
         os.makedirs(pipeline.base_result_dir)
-
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
     pipeline_space = [(pipeline, backend), pipeline.pipeline_space]
-
     # Create the trials object loading the persistent trials
     trials = trials_class(trials_dir=pipeline.base_result_dir)
-
     # Do the evaluation
     # Log errors from here with special logger
     with OutputLogger(std_out_logger=None,
@@ -90,6 +86,9 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
                                      rseed=int(time.time())):
             # Put the result into the queue
             queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
+    # Return the best trial, in case no evaluation has been done
+    best_trial = trials.best_trial
+    return (best_trial.loss, pipeline, best_trial.parameters(pipeline))
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -100,21 +99,21 @@ class HyperoptOptimizer(PySPACEOptimizer):
         manager = Manager()
         self._queue = manager.Queue()
 
-    def _do_optimization(self, pipelines, max_evals):
+    def _do_optimization(self, pipelines, evaluations, pass_):
         self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
 
         try:
             # Enqueue the evaluations and save the results
             results = [pool.apply_async(func=optimize_pipeline,
-                                        args=(self._backend, self._queue, pipeline, max_evals,
+                                        args=(self._backend, self._queue, pipeline, evaluations * pass_,
                                               self.TRIALS_CLASS))
                        for pipeline in pipelines]
 
             # close the pool
             pool.close()
             # Read the queue until all jobs are done or the max evaluation time is reached
-            return self._read_queue(results=results, max_evals=max_evals)
+            return self._read_queue(results=results, max_evals=evaluations)
         finally:
             pool.terminate()
             pool.join()
@@ -130,8 +129,13 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # the queue is empty and all workers are finished: break
                 # but first check for errors:
                 for result in results:
+                    value = result.get()
                     if not result.successful():
-                        raise result.get()
+                        raise value
+                    if value[0] < best[0]:
+                        best = value
+                        self.store_best_result(best_pipeline=best[1],
+                                               best_parameters=best[2])
                 break
             else:
                 try:
@@ -140,8 +144,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
                     self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s",
                                        pipeline, loss, parameters)
                     if loss < best[0]:
-                        self._logger.info("Pipeline '%r' with parameters '%s' selected as best", pipeline,
-                                          parameters)
                         best = [loss, pipeline, parameters]
                         self.store_best_result(best_pipeline=pipeline,
                                                best_parameters=parameters)
@@ -166,27 +168,26 @@ class HyperoptOptimizerSerialTrials(HyperoptOptimizer):
 
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
-    def _do_optimization(self, pipelines, max_evals):
-        best = [float("inf"), None, None]
+    def _do_optimization(self, pipelines, evaluations, pass_):
+        current_best = [float("inf"), None, None]
         self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
         try:
             # Get the number of evaluations to make
             for pipeline in pipelines:
                 result = pool.apply_async(func=optimize_pipeline,
-                                          args=(self._backend, self._queue, pipeline, max_evals,
+                                          args=(self._backend, self._queue, pipeline, evaluations * pass_,
                                                 self.TRIALS_CLASS))
                 # Append the sentinel value, because no additional result can be found
-                loss, pipeline, parameters = self._read_queue(max_evals, results=[result])
+                loss, pipeline, parameters = self._read_queue(evaluations, results=[result])
                 self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
-                if loss < best[0]:
-                    self._logger.info("Pipeline '%s' with parameters '%s' selected as best", pipeline, parameters)
-                    best = [loss, pipeline, parameters]
+                if loss < current_best[0]:
+                    current_best = [loss, pipeline, parameters]
                     self.store_best_result(best_pipeline=pipeline, best_parameters=parameters)
         finally:
             pool.terminate()
             pool.join()
-        return best
+        return current_best
 
 
 class SerialHyperoptOptimizerSerialTrials(SerialHyperoptOptimizer):

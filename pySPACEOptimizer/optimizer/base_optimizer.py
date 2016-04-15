@@ -59,7 +59,7 @@ class PySPACEOptimizer(object):
             self._logger.debug("Testing Pipeline: %s", pipeline)
             pipeline = Pipeline(configuration=self._task,
                                 node_chain=[self._create_node(node_name) for node_name in pipeline])
-            if self._task.get("restart_evaluation", False):
+            if self._task.get("restart_evaluation", False) and os.path.isdir(pipeline.base_result_dir):
                 # Delete the old values and start over again
                 try:
                     shutil.rmtree(pipeline.base_result_dir)
@@ -81,14 +81,17 @@ class PySPACEOptimizer(object):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _do_optimization(self, pipelines, max_evals):
+    def _do_optimization(self, pipelines, evaluations, pass_):
         """
-        Do a single evaluation step on all given `pipelines` using `max_evals` evaluations.
+        Do a single evaluation step on all given `pipelines` using `evaluations` evaluations.
+        The `pass_` parameter is used to determinate the current pass this optimizer is in.
 
         :param pipelines: The pipelines to optimize
         :type pipelines: list[Pipeline]
-        :param max_evals: The number of evaluations to do at most.
-        :type max_evals: int
+        :param evaluations: The number of evaluations to do.
+        :type evaluations: int
+        :param pass_: The pass this optimization is done in.
+        :type pass_: int
         :return: A tuple containing, the loss, the best pipeline and the parameters for this pipeline
         :rtype tuple[float, Pipeline, dict[str, object]]
         """
@@ -106,20 +109,19 @@ class PySPACEOptimizer(object):
 
         self._logger.info("Optimizing Pipelines")
         # Get the number of evaluations to make
-        max_evaluations = self._task["max_evaluations"]
+        evaluations = self._task["evaluations_per_pass"]
         passes = self._task["passes"]
-        evaluations_per_pass = [(max_evaluations / passes) * pass_ for pass_ in range(1, passes + 1)]
-        if evaluations_per_pass[-1] < max_evaluations:
-            evaluations_per_pass[-1] = max_evaluations
 
         pipelines = [pipeline for pipeline in self._generate_pipelines()]
 
-        for pass_, evaluations in enumerate(evaluations_per_pass, start=1):
+        for pass_ in range(1, passes + 1):
             self._logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
-            result = self._do_optimization(pipelines=pipelines, max_evals=evaluations)
+            result = self._do_optimization(pipelines=pipelines,
+                                           evaluations=evaluations,
+                                           pass_=pass_)
             if result[0] < best[0]:
+                self._logger.info("Pipeline '%r' with parameters '%s' selected as best", result[1], result[2])
                 best = result
             self._logger.debug("Best result of pass %d: %s" % (pass_, best))
-            self._logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
         self._logger.info("Best result: Pipeline %s with %s at loss %.2f" % (best[1], best[2], best[0]))
         return best

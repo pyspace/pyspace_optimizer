@@ -1,25 +1,32 @@
 type: classification
-input_path: eeg_data
-optimizer: HyperoptOptimizer
+input_path: eeg_data_reduced
+optimizer: SerialHyperoptOptimizer
 
 class_labels: [Standard, Target]
 main_class: Target
 
 source_node: TimeSeriesSourceNode
 sink_node: PerformanceSinkNode
-metirc: Balanced_accuracy
+metric: Balanced_accuracy
+is_performance_metric: true
 
-max_pipeline_length: 11
-max_evaluations: 10
-passes: 5
-restart_evaluation: true
+evaluations_per_pass: 2
+passes: 10
+
+max_pipeline_length: 10
+restart_evaluation: false
 
 whitelist:
   - TimeSeriesSourceNode
-  - LocalStandardizationNode
-  - DecimationFIRNode
-  - FFTBandPassFilterNode
-  - CrossValidationSplitterNode
+  - XDAWNNode
+  - LocalStraightLineFeatureNode
+  - GaussianFeatureNormalizationNode
+  - LibSVMClassifierNode
+  - ThresholdOptimizationNode
+  - PerformanceSinkNode
+
+forced_nodes:
+  - TimeSeriesSourceNode
   - XDAWNNode
   - LocalStraightLineFeatureNode
   - GaussianFeatureNormalizationNode
@@ -27,25 +34,12 @@ whitelist:
   - PerformanceSinkNode
 
 parameter_ranges:
-  - node: DecimationFIRNode
-    parameters:
-      target_frequency: 25
-      comp_type: normal
-
-  - node: FFTBandPassFilterNode
-    parameters:
-      pass_band: [[0.0, 4.0]]
-
-  - node: CrossValidationSplitterNode
-    parameters:
-      splits: 5
-      stratified: True
-
   - node: xDAWNNode
     parameters:
-      store: False
-      visualize_pattern: False
-      retained_channels: 8
+      erp_class_label : ["Target"]
+      store : False
+      visualize_pattern : False
+      retained_channels : [8]
 
   - node: LocalStraightLineFeatureNode
     parameters:
@@ -57,9 +51,9 @@ parameter_ranges:
     parameters:
       complexity: [1., .1, .01, .001, .0001, .00001, .000001]
       weight: [[1.0, 5.0]]
-      kernel_type: LINEAR
-      max_iterations: 50
+      kernel_type: [LINEAR]
+      max_iterations: [50]
 
-  - node: ThresholdOptimizationNode
-    parameters:
-      metric: Balaced_accurarcy
+  - node: Threshold_Optimization
+    parameters :
+      metric : 'Balanced_accuracy'
