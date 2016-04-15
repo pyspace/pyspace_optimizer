@@ -121,7 +121,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def _read_queue(self, max_evals, results):
         best = [float("inf"), None, None]
         # Create a progress bar
-        progress_bar = ProgressBar(widgets=['Optimization progress: ', Percentage(), ' ', Bar()],
+        progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
                                    maxval=max_evals * len(results),
                                    fd=FileLikeLogger(logger=self._logger, log_level=logging.INFO))
         while True:
@@ -178,12 +178,7 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
                 result = pool.apply_async(func=optimize_pipeline,
                                           args=(self._backend, self._queue, pipeline, evaluations * pass_,
                                                 self.TRIALS_CLASS))
-                # Append the sentinel value, because no additional result can be found
-                loss, pipeline, parameters = self._read_queue(evaluations, results=[result])
-                self._logger.debug("Loss of Pipeline '%s' is: '%s'", pipeline, loss)
-                if loss < current_best[0]:
-                    current_best = [loss, pipeline, parameters]
-                    self.store_best_result(best_pipeline=pipeline, best_parameters=parameters)
+                current_best = self._read_queue(evaluations, results=[result])
         finally:
             pool.terminate()
             pool.join()

@@ -37,7 +37,7 @@ class Trial(object):
         return new_parameters
 
 
-def evaluate_trial(domain, trials, number, trial):
+def evaluate_trial(domain, trials, trial):
     if trial["state"] == base.JOB_STATE_NEW:
         spec = base.spec_from_misc(trial['misc'])
         ctrl = base.Ctrl(trials, current_trial=trial)
@@ -49,7 +49,7 @@ def evaluate_trial(domain, trials, number, trial):
         else:
             trial['state'] = base.JOB_STATE_DONE
             trial['result'] = result
-    return number, trial
+    return trial
 
 
 # noinspection PyAbstractClass
@@ -115,27 +115,25 @@ class PersistentTrials(Trials):
             return item["state"]
         return sorted(self._dynamic_trials, key=get_state, reverse=True)
 
-    def _update_doc(self, number, trial):
-        self._dynamic_trials[number] = trial
-        self.refresh()
+    def _update_doc(self, trial):
+        self._dynamic_trials[trial["tid"]] = trial
 
     def _do_evaluate(self, domain, trials):
-        for number, trial in enumerate(trials):
-            evaluate_trial(domain=domain, trials=self, number=number, trial=trial)
-            yield number, trial
+        for trial in trials:
+            evaluate_trial(domain=domain, trials=self, trial=trial)
+            yield trial
 
     def _evaluate(self, domain):
         # Get the trials to evaluate
         trials = [trial for trial in self._dynamic_trials if trial["state"] == JOB_STATE_NEW]
-        for number, trial in self._do_evaluate(domain=domain, trials=trials):
-            self._update_doc(number=number, trial=trial)
+        for trial in self._do_evaluate(domain=domain, trials=trials):
+            self._update_doc(trial=trial)
             yield trial
 
     def _enqueue_trials(self, domain, algo, max_evals, rseed):
         n_to_enqueue = max_evals - len(self._trials)
         if n_to_enqueue > 0:
             new_ids = self.new_trial_ids(n_to_enqueue)
-            self.refresh()
             new_trials = algo(new_ids=new_ids,
                               domain=domain,
                               trials=self,
@@ -146,7 +144,6 @@ class PersistentTrials(Trials):
                 assert len(new_ids) >= len(new_trials)
                 if new_trials:
                     self.insert_trial_docs(new_trials)
-                    self.refresh()
                 else:
                     return False
         return True
@@ -159,9 +156,10 @@ class PersistentTrials(Trials):
 
         # Do one minimization step and yield the result
         for trial in self._evaluate(domain=domain):
-            self.refresh()
             # yield the result
             yield Trial(trial["result"]["loss"], base.spec_from_misc(trial["misc"]))
+        # Refresh the trials to persist the changes
+        self.refresh()
 
     def fmin(self, fn, space, algo, max_evals, rseed=123):
         # Do all minimization steps
@@ -199,7 +197,7 @@ class MultiprocessingPersistentTrials(PersistentTrials):
         pool = OptimizerPool()
 
         # Create the arguments passed to the evaluation method
-        args = [(domain, self, number, trial) for number, trial in enumerate(trials)]
+        args = [(domain, self, trial) for trial in trials]
 
         def _yield_args():
             for arg in args:
@@ -213,8 +211,8 @@ class MultiprocessingPersistentTrials(PersistentTrials):
 
         # noinspection PyBroadException
         try:
-            for number, trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
-                yield number, trial
+            for trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
+                yield trial
             # Close the pool
             pool.close()
         except:
