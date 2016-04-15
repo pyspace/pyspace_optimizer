@@ -11,7 +11,7 @@ metric: Balanced_accuracy
 is_performance_metric: true
 
 evaluations_per_pass: 2
-passes: 10
+passes: 11
 
 max_pipeline_length: 10
 restart_evaluation: false

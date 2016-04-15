@@ -182,6 +182,9 @@ class PersistentTrials(Trials):
     def num_finished(self):
         return self.count_by_state_unsynced(JOB_STATE_DONE)
 
+    def __getitem__(self, index):
+        return self._dynamic_trials[index]
+
 
 def trials_wrapper(args):
     return evaluate_trial(*args)
