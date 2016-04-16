@@ -24,7 +24,7 @@ def main(args):
     trials = load(arguments.trials)
 
     # Calculate the average for each step and the best loss
-    x, steps, bests, averages = [], [], [], []
+    x, steps, bests, averages, averages_x = [], [], [], [], []
     sum_of_losses = 0
     num_of_losses = 0
     mean = 0
@@ -52,9 +52,10 @@ def main(args):
 
             # and the average
             mean += trials[i]["result"]["loss"] / arguments.window_size
-            if i >= arguments.window_size:
+            if i >= arguments.window_size:            
                 mean -= trials[i - arguments.window_size]["result"]["loss"] / arguments.window_size
-            averages.append(mean)
+                averages_x.append(trials[i]["tid"])
+                averages.append(mean)
 
     # append last step
     if num_of_losses > 0:
@@ -64,7 +65,7 @@ def main(args):
     pyplot.title("Performance of a pipeline during optimization")
     pyplot.plot(x, steps, label="Average loss per step")
     pyplot.plot(x, bests, label="Best loss at trial")
-    pyplot.plot(x, averages, label="SMA of %d" % arguments.window_size)
+    pyplot.plot(averages_x, averages, label="SMA of %d" % arguments.window_size)
     pyplot.xlabel("Trial number")
     pyplot.ylabel("Loss")
     pyplot.legend()
