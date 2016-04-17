@@ -99,7 +99,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
         manager = Manager()
         self._queue = manager.Queue()
 
-    def _do_optimization(self, pipelines, evaluations, pass_):
+    def _do_optimization(self, evaluations, pass_):
         self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
 
@@ -108,7 +108,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
             results = [pool.apply_async(func=optimize_pipeline,
                                         args=(self._backend, self._queue, pipeline, evaluations * pass_,
                                               self.TRIALS_CLASS))
-                       for pipeline in pipelines]
+                       for pipeline in self._generate_pipelines()]
 
             # close the pool
             pool.close()
@@ -168,13 +168,13 @@ class HyperoptOptimizerSerialTrials(HyperoptOptimizer):
 
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
-    def _do_optimization(self, pipelines, evaluations, pass_):
+    def _do_optimization(self, evaluations, pass_):
         current_best = [float("inf"), None, None]
         self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
         try:
             # Get the number of evaluations to make
-            for pipeline in pipelines:
+            for pipeline in self._generate_pipelines():
                 result = pool.apply_async(func=optimize_pipeline,
                                           args=(self._backend, self._queue, pipeline, evaluations * pass_,
                                                 self.TRIALS_CLASS))
