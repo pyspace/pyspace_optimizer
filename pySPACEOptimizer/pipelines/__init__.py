@@ -95,9 +95,9 @@ class Pipeline(object):
     @property
     def base_result_dir(self):
         pipeline_hash = str(hash(self)).replace("-", "_")
-        return os.path.join(pySPACE.configuration.storage, "operation_results", "pySPACEOptimizer", pipeline_hash)
+        return os.path.join(os.getcwd(), "operation_results", pipeline_hash)
 
-    def execute(self, parameter_ranges=None, backend=u"serial", base_result_dir=None):
+    def execute(self, parameter_ranges=None, backend=u"serial"):
         """
         Executes the pipeline using the given backend.
 
@@ -113,7 +113,7 @@ class Pipeline(object):
         # noinspection PyBroadException
         backend = pySPACE.create_backend(backend)
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
-                                             base_result_dir=base_result_dir)
+                                             base_result_dir=self.base_result_dir)
         with open(os.devnull, "w") as output:
             with OutputRedirecter(std_out=output, std_err=sys.stderr):
                 pySPACE.run_operation(backend, operation)

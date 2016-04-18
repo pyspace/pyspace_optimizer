@@ -34,8 +34,7 @@ def __minimize(spec):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             result_path = pipeline.execute(parameter_ranges=parameter_ranges,
-                                           backend=backend,
-                                           base_result_dir=pipeline.base_result_dir)
+                                           backend=backend)
         # Check the result
         result_file = os.path.join(result_path, "results.csv") if result_path is not None else ""
         if os.path.isfile(result_file):
