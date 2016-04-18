@@ -12,6 +12,7 @@ input_path: "example_summary_split"
 optimizer: HyperoptOptimizer
 class_labels: [Standard, Target]
 main_class: Target
+evaluations_per_pass: 1
 """
 
 
@@ -26,8 +27,7 @@ max_pipeline_length: 4
 source_node: FeatureVectorSourceNode
 whitelist: [SorSvmNode,
             GaussianFeatureNormalizationNode]
-max_evaluations: 10
-
+evaluations_per_pass: 1
 parameter_ranges:
     - node: SorSvmNode
       parameters:
@@ -46,7 +46,8 @@ class TaskestCase(PySPACETestCase):
                                         node_name: 10,
                                    },
                           class_labels=["Standard", "Target"],
-                          main_class="Target")
+                          main_class="Target",
+                          evaluations_per_pass=1)
         node = PipelineNode(node_name, experiment)
         nodes = experiment.weighted_nodes_by_input_type()
         for input_type in node.class_.get_input_types():
@@ -58,7 +59,8 @@ class TaskestCase(PySPACETestCase):
                           optimizer="PySPACEOptimizer",
                           class_labels=["Standard", "Target"],
                           main_class="Target",
-                          whitelist=white_list)
+                          whitelist=white_list,
+                          evaluations_per_pass=1)
         self.assertEqual(len([node for node in experiment.nodes
                               if not is_source_node(node) and not is_sink_node(node)]),
                          len(white_list))
@@ -70,7 +72,8 @@ class TaskestCase(PySPACETestCase):
              optimizer="PySPACEOptimizer",
              class_labels=["Standard", "Target"],
              main_class="Target",
-             node_weights=weight_list)
+             node_weights=weight_list,
+             evaluations_per_pass=1)
 
     @unittest.expectedFailure
     def test_wrong_weight_dict2(self):
@@ -79,7 +82,8 @@ class TaskestCase(PySPACETestCase):
              optimizer="PySPACEOptimizer",
              class_labels=["Standard", "Target"],
              main_class="Target",
-             node_weights=weight_list)
+             node_weights=weight_list,
+             evaluations_per_pass=1)
 
     @unittest.expectedFailure
     def test_wrong_white_list(self):
@@ -88,7 +92,8 @@ class TaskestCase(PySPACETestCase):
              optimizer="PySPACEOptimizer",
              class_labels=["Standard", "Target"],
              main_class="Target",
-             whitelist=white_list)
+             whitelist=white_list,
+             evaluations_per_pass=1)
 
     def test_minimal_config_from_yaml(self):
         task = task_from_yaml(MINIMAL_CONFIG)
@@ -102,5 +107,6 @@ class TaskestCase(PySPACETestCase):
         task = ClassificationTask("example_summary",
                                   optimizer="PySPACEOptimizer",
                                   class_labels=["Standard", "Target"],
-                                  main_class="Target")
+                                  main_class="Target",
+                                  evaluations_per_pass=1)
         self.assertGreater(len(task.nodes.keys()), 0)

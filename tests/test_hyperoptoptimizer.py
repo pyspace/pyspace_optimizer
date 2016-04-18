@@ -12,9 +12,9 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                          class_labels=["Standard", "Target"],
                          main_class="Target",
                          max_pipeline_length=4,
-                         max_evaluations=1,
+                         evaluations_per_pass=1,
                          source_node="FeatureVectorSourceNode",
-                         whitelist=["SorSvmNode", "GaussianFeatureNormalizationNode"],
+                         whitelist=["SorSvmNode"],
                          parameter_ranges=[{"node": "SorSvmNode",
                                             "parameters": {
                                                 "complexity": 1,

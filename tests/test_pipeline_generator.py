@@ -10,7 +10,8 @@ class PipelineGeneratorTests(PySPACETestCase):
                           optimizer="PySPACEOptimizer",
                           class_labels=["Standard", "Target"],
                           main_class="Target",
-                          max_pipeline_length=3)
+                          max_pipeline_length=3,
+                          evaluations_per_pass=1)
         generator = PipelineGenerator(experiment)
         for pipeline in generator:
             self.assertLessEqual(len(pipeline), experiment["max_pipeline_length"])
@@ -22,7 +23,8 @@ class PipelineGeneratorTests(PySPACETestCase):
                     main_class="Target",
                     source_node="FeatureVectorSourceNode",
                     sink_node="PerformanceSinkNode",
-                    whitelist=["SorSvmNode", "GaussianFeatureNormalizationNode"])
+                    whitelist=["SorSvmNode", "GaussianFeatureNormalizationNode"],
+                          evaluations_per_pass=1)
         check = task["whitelist"]
         check.add(task["source_node"])
         check.add(task["sink_node"])
@@ -36,7 +38,8 @@ class PipelineGeneratorTests(PySPACETestCase):
                     main_class="Target",
                     source_node="FeatureVectorSourceNode",
                     sink_node="PerformanceSinkNode",
-                    blacklist=["SorSvmNode", "GaussianFeatureNormalizationNode"])
+                    blacklist=["SorSvmNode", "GaussianFeatureNormalizationNode"],
+                    evaluations_per_pass=1)
         for pipeline in PipelineGenerator(task):
             self.assertFalse(any([node in pipeline for node in task["blacklist"]]))
 
@@ -45,6 +48,7 @@ class PipelineGeneratorTests(PySPACETestCase):
                     optimizer="PySPACEOptimizer",
                     class_labels=["Standard", "Target"],
                     main_class="Target",
-                    forced_nodes=["SorSvmNode"])
+                    forced_nodes=["SorSvmNode"],
+                    evaluations_per_pass=1)
         for pipeline in PipelineGenerator(task):
             self.assertTrue(all([node in pipeline for node in task["forced_nodes"]]))

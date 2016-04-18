@@ -11,7 +11,8 @@ class PipelineTestCase(PySPACETestCase):
         experiment = Task(input_path="example_summary_split",
                           optimizer="PySPACEOptimizer",
                           class_labels=["Standard","Target"],
-                          main_class="Target")
+                          main_class="Target",
+                          evaluations_per_pass=1)
         pipeline = Pipeline(configuration=experiment,
                             node_chain=[PipelineNode(node, experiment) for node in ["SorSvmNode", "PerformanceSinkNode"]])
         operation_spec = pipeline.operation_spec()
