@@ -7,6 +7,5 @@
 unittest_log.txt
 .idea
 *.pyc
-best_result.pickle
-logfile.txt
 *.pylog
+performance.png

@@ -6,6 +6,7 @@ import os
 
 import shutil
 
+from pySPACEOptimizer.optimizer.performance_graphic import PerformanceGraphic
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
 from pySPACEOptimizer.pipelines import Pipeline
 
@@ -28,6 +29,8 @@ class NoPipelineFound(Exception):
 class PySPACEOptimizer(object):
 
     __metaclass__ = abc.ABCMeta
+
+    PERFORMANCE_GRAPHIC_CLASS = PerformanceGraphic
 
     def __init__(self, task, backend, best_result_file):
         """
@@ -87,7 +90,7 @@ class PySPACEOptimizer(object):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _do_optimization(self, evaluations, pass_):
+    def _do_optimization(self, evaluations, pass_, performance_graphic):
         """
         Do a single evaluation step using `evaluations` evaluations.
         The `pass_` parameter is used to determinate the current pass this optimizer is in.
@@ -116,10 +119,11 @@ class PySPACEOptimizer(object):
         evaluations = self._task["evaluations_per_pass"]
         passes = self._task["passes"]
 
+        performance_graphic = self.PERFORMANCE_GRAPHIC_CLASS(window_size=evaluations)
         for pass_ in range(1, passes + 1):
             self._logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
-            result = self._do_optimization(evaluations=evaluations,
-                                           pass_=pass_)
+            result = self._do_optimization(evaluations=evaluations, pass_=pass_,
+                                           performance_graphic=performance_graphic)
             if result[0] < best[0]:
                 self._logger.info("Pipeline '%r' with parameters '%s' selected as best", result[1], result[2])
                 best = result

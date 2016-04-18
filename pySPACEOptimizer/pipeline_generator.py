@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import logging
 import numpy
-import copy
 
 from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_sink_node, get_node_type
 
@@ -33,16 +32,17 @@ class PipelineGenerator(object):
         self._nodes = configuration.weighted_nodes_by_input_type()
         self._required_node_types = configuration.required_node_types
         self._required_nodes = configuration.required_nodes
+        self._configuration_nodes = configuration.nodes
         self._configuration = configuration
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     def _get_output_type(self, node_name, input_type):
         try:
-            return self._configuration.nodes[node_name].get_output_type(input_type)
+            return self._configuration_nodes[node_name].get_output_type(input_type)
         except TypeError:
             return None
 
-    def _make_pipeline(self, pipeline_array, input_type, pipeline_types, index, nodes):
+    def _make_pipeline(self, pipeline_array, input_type, pipeline_types, index):
         # First node has to be a "SourceNode", emitting the correct data type
         first_node = False
         if index == 0:
@@ -55,7 +55,6 @@ class PipelineGenerator(object):
                 pipeline_array[index] = self._source_node
                 pipeline_types[index] = get_node_type(self._source_node)
                 index += 1
-                nodes[input_type].remove(self._source_node)
                 input_type = self._get_output_type(self._source_node, input_type)
                 self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
 
@@ -65,23 +64,22 @@ class PipelineGenerator(object):
             self._logger.debug("\t" * index + "No valid pipeline possible! Returning..")
             raise StopIteration()
 
-        # Then check all remaining nodes
-        for node in nodes[input_type]:
+        array = pipeline_array[:index + 1]
+
+        for node in self._nodes[input_type]:
             # Append only if:
             # - it is the first node and it's a source node
             # - it's not the first node and not a sink node
-            #   and the type is not contained in the pipeline (asserted by removing the node from the nodes dict)
-            if (first_node and is_source_node(node)) or (not first_node and not is_sink_node(node)):
+            #   and the type is not contained in the pipeline
+            if node not in array and ((first_node and is_source_node(node)) or
+                    (not first_node and not is_sink_node(node))):
                 self._logger.debug("\t" * index + "Appending '%s'", node)
                 pipeline_array[index] = node
                 pipeline_types[index] = get_node_type(node)
                 node_output = self._get_output_type(node, input_type)
                 if node_output is not None and node_output not in self._sink_node_inputs:
-                    new_nodes = copy.deepcopy(nodes)
-                    new_nodes[input_type].remove(node)
                     self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
-                    for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1,
-                                                        new_nodes):
+                    for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1):
                         yield pipeline
                 elif node_output is not None:
                     # Valid Pipeline, append the performance sink node
@@ -107,6 +105,6 @@ class PipelineGenerator(object):
         for pipeline in self._make_pipeline(numpy.chararray(self._max_length + 1, itemsize=255),
                                             self._input_type,
                                             numpy.chararray(self._max_length + 1, itemsize=255),
-                                            index=0, nodes=self._nodes):
+                                            index=0):
             yield pipeline
         raise StopIteration()

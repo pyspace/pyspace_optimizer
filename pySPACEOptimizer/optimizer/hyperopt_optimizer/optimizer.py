@@ -13,6 +13,8 @@ from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
+from pySPACEOptimizer.optimizer.hyperopt_optimizer.performance_graphic import PerformanceGraphic, \
+    HyperoptPerformanceGraphic
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials, \
     PersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
@@ -93,32 +95,40 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
 
 class HyperoptOptimizer(PySPACEOptimizer):
     TRIALS_CLASS = MultiprocessingPersistentTrials
+    PERFORMANCE_GRAPHIC_CLASS = HyperoptPerformanceGraphic
 
     def __init__(self, task, backend, best_result_file):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
         manager = Manager()
         self._queue = manager.Queue()
 
-    def _do_optimization(self, evaluations, pass_):
+    def _do_optimization(self, evaluations, pass_, performance_graphic):
         self._logger.debug("Creating optimization pool")
         pool = OptimizerPool()
 
         try:
-            # Enqueue the evaluations and save the results
-            results = [pool.apply_async(func=optimize_pipeline,
-                                        args=(self._backend, self._queue, pipeline, evaluations * pass_,
-                                              self.TRIALS_CLASS))
-                       for pipeline in self._generate_pipelines()]
+            pipelines = []
+            results = []
+            self._logger.debug("Generating pipelines")
+            for pipeline in self._generate_pipelines():
+                # Enqueue the evaluations and save the results
+                results.append(pool.apply_async(func=optimize_pipeline,
+                                                args=(self._backend, self._queue, pipeline, evaluations * pass_,
+                                                      self.TRIALS_CLASS)))
+                pipelines.append(pipeline)
+            self._logger.debug("Done generating pipelines")
 
             # close the pool
             pool.close()
             # Read the queue until all jobs are done or the max evaluation time is reached
-            return self._read_queue(results=results, max_evals=evaluations)
+            return self._read_queue(pipelines=pipelines, max_evals=evaluations, results=results,
+                                    performance_graphic=performance_graphic)
         finally:
             pool.terminate()
             pool.join()
 
-    def _read_queue(self, max_evals, results):
+    def _read_queue(self, pipelines, max_evals, results, performance_graphic):
+        self._logger.debug("Reading queue")
         best = [float("inf"), None, None]
         # Create a progress bar
         progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
@@ -136,6 +146,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
                         best = value
                         self.store_best_result(best_pipeline=best[1],
                                                best_parameters=best[2])
+                # Update the performance graphic
+                performance_graphic.update(pipelines, max_evals)
                 break
             else:
                 try:
@@ -147,6 +159,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
                         best = [loss, pipeline, parameters]
                         self.store_best_result(best_pipeline=pipeline,
                                                best_parameters=parameters)
+                    # Update the performance graphic
+                    performance_graphic.update(pipelines, max_evals)
                     progress_bar.update(progress_bar.currval + 1)
                 except Empty:
                     pass
@@ -168,22 +182,28 @@ class HyperoptOptimizerSerialTrials(HyperoptOptimizer):
 
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
-    def _do_optimization(self, evaluations, pass_):
+    def _do_optimization(self, evaluations, pass_, performance_graphic):
         self._logger.debug("Creating optimization pool")
         # Create a pool with just one process, so every job
         # needs to be processed in serial
         pool = OptimizerPool(processes=1)
         try:
-            # Enqueue the evaluations and save the results
-            results = [pool.apply_async(func=optimize_pipeline,
-                                        args=(self._backend, self._queue, pipeline, evaluations * pass_,
-                                              self.TRIALS_CLASS))
-                       for pipeline in self._generate_pipelines()]
+            pipelines = []
+            results = []
+            self._logger.debug("Generating pipelines")
+            for pipeline in self._generate_pipelines():
+                # Enqueue the evaluations and save the results
+                results.append(pool.apply_async(func=optimize_pipeline,
+                                                args=(self._backend, self._queue, pipeline, evaluations * pass_,
+                                                      self.TRIALS_CLASS)))
+                pipelines.append(pipeline)
+            self._logger.debug("Done generating pipelines")
 
             # close the pool
             pool.close()
             # Read the queue until all jobs are done or the max evaluation time is reached
-            return self._read_queue(max_evals=evaluations, results=results)
+            return self._read_queue(pipelines=pipelines, max_evals=evaluations, results=results,
+                                    performance_graphic=performance_graphic)
         finally:
             pool.terminate()
             pool.join()
