@@ -205,7 +205,7 @@ class Task(dict):
     def node_weight(self, node):
         if node in self["node_weights"]:
             return self["node_weights"][node]
-        elif node in self["required_nodes"]:
+        elif node in self["forced_nodes"]:
             # Required nodes have the highest possible weight
             return float("inf")
         else:
