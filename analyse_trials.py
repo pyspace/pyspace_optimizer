@@ -52,13 +52,15 @@ def main(args):
 
             # and the average
             if trials[i]["result"]["loss"] < float("inf"):
-                averages_x.append(trials[i]["tid"])
                 mean += trials[i]["result"]["loss"] / arguments.window_size
                 if i >= arguments.window_size and trials[i - arguments.window_size]["result"]["loss"] != float("inf"):
                     mean -= trials[i - arguments.window_size]["result"]["loss"] / arguments.window_size
                 elif trials[i - arguments.window_size]["result"]["loss"] == float("inf"):
                     mean -= trials[i]["result"]["loss"] / arguments.window_size
-                averages.append(mean)
+
+                if i >= arguments.window_size:
+                    averages_x.append(trials[i]["tid"])
+                    averages.append(mean)
 
     # append last step
     if num_of_losses > 0:
