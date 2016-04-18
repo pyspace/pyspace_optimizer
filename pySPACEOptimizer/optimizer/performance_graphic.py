@@ -28,22 +28,24 @@ class PerformanceGraphic(object):
             number_of_trials = self._number_of_trials(pipeline)
             for i in range(self.__current_indexes[pipeline], self.__current_indexes[pipeline] + number_of_evaluations):
                 current_loss = self._get_loss(pipeline, i)
-                if number_of_trials > i and  current_loss < float("inf"):
-                    # calculate the average
-                    self.__mean[pipeline] += current_loss / self.__window_size
-                    if i >= self.__window_size:
-                        last_loss = self._get_loss(pipeline, i - self.__window_size)
-                        if  last_loss < float("inf"):
-                            self.__mean[pipeline] -= last_loss / self.__window_size
-                        else:
-                            self.__mean[pipeline] -= current_loss / self.__window_size
-                        self.__tids[pipeline].append(i)
-                        self.__averages[pipeline].append(self.__mean[pipeline])
-                # And check the best
-                if self.__bests[i] > current_loss:
-                    self.__bests[i] = current_loss
-            # Save the index
-            self.__current_indexes[pipeline] += number_of_evaluations
+                if number_of_trials > i:
+                    if current_loss < float("inf"):
+                        # calculate the average
+                        self.__mean[pipeline] += current_loss / self.__window_size
+                        if i >= self.__window_size:
+                            last_loss = self._get_loss(pipeline, i - self.__window_size)
+                            if  last_loss < float("inf"):
+                                self.__mean[pipeline] -= last_loss / self.__window_size
+                            else:
+                                self.__mean[pipeline] -= current_loss / self.__window_size
+                            self.__tids[pipeline].append(i)
+                            self.__averages[pipeline].append(self.__mean[pipeline])
+                        # And check the best
+                        if self.__bests[i] > current_loss:
+                            self.__bests[i] = current_loss
+                    self.__current_indexes[pipeline] += 1
+                else:
+                    break
             # Plot the results
             pyplot.title("Pipeline performance during optimization")
             pyplot.plot(self.__tids[pipeline], self.__averages[pipeline], label="%s" % pipeline)
