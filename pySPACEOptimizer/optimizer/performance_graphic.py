@@ -27,8 +27,8 @@ class PerformanceGraphic(object):
         for pipeline in pipelines:
             number_of_trials = self._number_of_trials(pipeline)
             for i in range(self.__current_indexes[pipeline], self.__current_indexes[pipeline] + number_of_evaluations):
-                current_loss = self._get_loss(pipeline, i)
                 if number_of_trials > i:
+                    current_loss = self._get_loss(pipeline, i)
                     if current_loss < float("inf"):
                         # calculate the average
                         self.__mean[pipeline] += current_loss / self.__window_size
