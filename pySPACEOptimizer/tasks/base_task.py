@@ -36,8 +36,8 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, class_labels, main_class, evaluations_per_pass, optimizer="PySPACEOptimizer", max_pipeline_length=3,
-                 max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
+    def __init__(self, input_path, class_labels, main_class, evaluations_per_pass, optimizer="PySPACEOptimizer",
+                 max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, **kwargs):
 
@@ -121,11 +121,11 @@ class Task(dict):
 
     @property
     def required_nodes(self):
-        nodes = set(self["forced_nodes"])
+        nodes = set([DEFAULT_NODE_MAPPING[node_name] for node_name in self["forced_nodes"]])
         if self["source_node"]:
-            nodes.add(self["source_node"])
+            nodes.add(DEFAULT_NODE_MAPPING[self["source_node"]])
         if self["sink_node"]:
-            nodes.add(self["sink_node"])
+            nodes.add(DEFAULT_NODE_MAPPING[self["sink_node"]])
         return nodes
 
     @property
@@ -165,7 +165,7 @@ class Task(dict):
         Creates a dictionary of nodes, where the key is the input type, that this node can process.
 
         :return: A dictionary sorted by the type of input the nodes can process.
-        :rtype: Dict
+        :rtype: dict[str, list[str]]
         """
         nodes_by_input_type = {}
         for node_name, node in self.nodes.items():
@@ -203,8 +203,11 @@ class Task(dict):
         return weighted_nodes
 
     def node_weight(self, node):
-        if node in self["node_weights"].keys():
+        if node in self["node_weights"]:
             return self["node_weights"][node]
+        elif node in self["required_nodes"]:
+            # Required nodes have the highest possible weight
+            return float("inf")
         else:
             # Use the default node weight
             # noinspection PyBroadException
