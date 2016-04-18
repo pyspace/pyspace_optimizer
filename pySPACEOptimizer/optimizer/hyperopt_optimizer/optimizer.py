@@ -88,7 +88,7 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
             queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
     # Return the best trial, in case no evaluation has been done
     best_trial = trials.best_trial
-    return (best_trial.loss, pipeline, best_trial.parameters(pipeline))
+    return best_trial.loss, pipeline, best_trial.parameters(pipeline)
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -169,20 +169,24 @@ class HyperoptOptimizerSerialTrials(HyperoptOptimizer):
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):
     def _do_optimization(self, evaluations, pass_):
-        current_best = [float("inf"), None, None]
         self._logger.debug("Creating optimization pool")
-        pool = OptimizerPool()
+        # Create a pool with just one process, so every job
+        # needs to be processed in serial
+        pool = OptimizerPool(processes=1)
         try:
-            # Get the number of evaluations to make
-            for pipeline in self._generate_pipelines():
-                result = pool.apply_async(func=optimize_pipeline,
-                                          args=(self._backend, self._queue, pipeline, evaluations * pass_,
-                                                self.TRIALS_CLASS))
-                current_best = self._read_queue(evaluations, results=[result])
+            # Enqueue the evaluations and save the results
+            results = [pool.apply_async(func=optimize_pipeline,
+                                        args=(self._backend, self._queue, pipeline, evaluations * pass_,
+                                              self.TRIALS_CLASS))
+                       for pipeline in self._generate_pipelines()]
+
+            # close the pool
+            pool.close()
+            # Read the queue until all jobs are done or the max evaluation time is reached
+            return self._read_queue(max_evals=evaluations, results=results)
         finally:
             pool.terminate()
             pool.join()
-        return current_best
 
 
 class SerialHyperoptOptimizerSerialTrials(SerialHyperoptOptimizer):
