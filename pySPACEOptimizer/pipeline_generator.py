@@ -55,6 +55,7 @@ class PipelineGenerator(object):
                 pipeline_array[index] = self._source_node
                 pipeline_types[index] = get_node_type(self._source_node)
                 index += 1
+                nodes[input_type].remove(self._source_node)
                 input_type = self._get_output_type(self._source_node, input_type)
                 self._logger.debug("Using '%s' as source node and '%s' as input type", self._source_node, input_type)
 
@@ -76,7 +77,7 @@ class PipelineGenerator(object):
                 pipeline_types[index] = get_node_type(node)
                 node_output = self._get_output_type(node, input_type)
                 if node_output is not None and node_output not in self._sink_node_inputs:
-                    new_nodes = copy.copy(nodes)
+                    new_nodes = copy.deepcopy(nodes)
                     new_nodes[input_type].remove(node)
                     self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
                     for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1,

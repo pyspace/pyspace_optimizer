@@ -121,11 +121,11 @@ class Task(dict):
 
     @property
     def required_nodes(self):
-        nodes = set([DEFAULT_NODE_MAPPING[node_name] for node_name in self["forced_nodes"]])
+        nodes = set(self["forced_nodes"])
         if self["source_node"]:
-            nodes.add(DEFAULT_NODE_MAPPING[self["source_node"]])
+            nodes.add(self["source_node"])
         if self["sink_node"]:
-            nodes.add(DEFAULT_NODE_MAPPING[self["sink_node"]])
+            nodes.add(self["sink_node"])
         return nodes
 
     @property
