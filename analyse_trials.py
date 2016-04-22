@@ -27,7 +27,6 @@ def main(args):
     x, steps, bests, averages, averages_x = [], [], [], [], []
     sum_of_losses = 0
     num_of_losses = 0
-    mean = 0
     best = float("inf")
     for i in range(len(trials)):
         if trials[i]["state"] == JOB_STATE_DONE:
@@ -51,16 +50,21 @@ def main(args):
             bests.append(best)
 
             # and the average
-            if trials[i]["result"]["loss"] < float("inf"):
-                mean += trials[i]["result"]["loss"] / arguments.window_size
-                if i >= arguments.window_size and trials[i - arguments.window_size]["result"]["loss"] != float("inf"):
-                    mean -= trials[i - arguments.window_size]["result"]["loss"] / arguments.window_size
-                elif trials[i - arguments.window_size]["result"]["loss"] == float("inf"):
-                    mean -= trials[i]["result"]["loss"] / arguments.window_size
-
-                if i >= arguments.window_size:
-                    averages_x.append(trials[i]["tid"])
-                    averages.append(mean)
+            if i >= arguments.window_size:
+                mean = 0
+                num_of_averages = 0
+                for x in range(i - arguments.window_size + 1, i + 1):
+                    loss = trials[x]["result"]["loss"]
+                    if loss < float("inf"):
+                        mean += loss
+                        num_of_averages += 1
+                averages_x.append(i)
+                if num_of_averages > 0:
+                    averages.append(mean / num_of_averages)
+                else:
+                    # No valid points inside the window,
+                    # average must be infinitely high
+                    averages.append(float("inf"))
 
     # append last step
     if num_of_losses > 0:

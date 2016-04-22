@@ -12,7 +12,6 @@ class PerformanceGraphic(object):
         self.__window_size = window_size
         self.__tids = defaultdict(lambda: [])
         self.__averages = defaultdict(lambda: [])
-        self.__mean = defaultdict(lambda: 0)
         self.__bests = defaultdict(lambda: float("inf"))
         self.__current_indexes = defaultdict(lambda: 0)
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
@@ -26,7 +25,7 @@ class PerformanceGraphic(object):
         raise NotImplementedError()
 
     def update(self, pipelines, number_of_evaluations):
-        figure = pyplot.figure()
+        figure = pyplot.figure(figsize=(11, 8), dpi=80)
         pyplot.xlabel("Trial number")
         pyplot.ylabel("Loss")
 
@@ -35,20 +34,24 @@ class PerformanceGraphic(object):
             for i in range(self.__current_indexes[pipeline], self.__current_indexes[pipeline] + number_of_evaluations):
                 if number_of_trials > i:
                     current_loss = self._get_loss(pipeline, i)
-                    if current_loss < float("inf"):
-                        # calculate the average
-                        self.__mean[pipeline] += current_loss / self.__window_size
-                        if i >= self.__window_size:
-                            last_loss = self._get_loss(pipeline, i - self.__window_size)
-                            if  last_loss < float("inf"):
-                                self.__mean[pipeline] -= last_loss / self.__window_size
-                            else:
-                                self.__mean[pipeline] -= current_loss / self.__window_size
-                            self.__tids[pipeline].append(i)
-                            self.__averages[pipeline].append(self.__mean[pipeline])
-                        # And check the best
-                        if self.__bests[i] > current_loss:
-                            self.__bests[i] = current_loss
+                    if i >= self.__window_size:
+                        mean = 0
+                        number_of_points = 0
+                        for x in range(i - self.__window_size + 1, i + 1):
+                            loss = self._get_loss(pipeline, x)
+                            if loss < float("inf"):
+                                mean += loss
+                                number_of_points += 1
+                        self.__tids[pipeline].append(i)
+                        if number_of_points > 0:
+                            self.__averages[pipeline].append(mean / number_of_points)
+                        else:
+                            # No valid points inside the window,
+                            # average must be infinitely high
+                            self.__averages[pipeline].append(float("inf"))
+                    # And check the best
+                    if self.__bests[i] > current_loss:
+                        self.__bests[i] = current_loss
                     self.__current_indexes[pipeline] += 1
                 else:
                     break
@@ -71,7 +74,8 @@ class PerformanceGraphic(object):
         if len(pipelines) <= 4:
             # Plot only a legend if the number of pipelines is
             # at most 4, because otherwise we don't see anything from the graph
-            pyplot.legend(loc='best', fancybox=True, framealpha=0.3)
-        pyplot.savefig(self.__file_path, transparent=True, format="pdf")
+            pyplot.legend(fancybox=True, framealpha=0.3, fontsize="small")
+        pyplot.savefig(self.__file_path, format="pdf", transparent=True)
         # Clear the figure for next plot
+        pyplot.clf()
         pyplot.close(figure)
