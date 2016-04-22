@@ -43,4 +43,6 @@ def task_factory(task_description):
                              "Taking first entry point and ignoring all others" % type)
     elif not entry_points:
         raise RuntimeError("No entry point found for task type '%s', please check installation" % type)
-    return entry_points[0].resolve()(**task_description)
+    task = entry_points[0].resolve()(**task_description)
+    task.log_task()
+    return task

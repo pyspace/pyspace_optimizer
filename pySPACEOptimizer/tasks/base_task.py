@@ -36,7 +36,7 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, class_labels, main_class, evaluations_per_pass, optimizer="PySPACEOptimizer",
+    def __init__(self, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
                  max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, **kwargs):
@@ -49,6 +49,11 @@ class Task(dict):
                 if node not in DEFAULT_NODE_MAPPING:
                     raise ValueError("'{node}' from white list is not a node".format(node=node))
 
+        if forced_nodes is not None:
+            for node in forced_nodes:
+                if node not in DEFAULT_NODE_MAPPING:
+                    raise ValueError("'{node}' from force list is not a node".format(node=node))
+
         if node_weights is not None:
             for node, weight in node_weights.items():
                 if node not in DEFAULT_NODE_MAPPING:
@@ -56,12 +61,6 @@ class Task(dict):
                 elif not isinstance(weight, (int, float)) or weight < 0:
                     raise ValueError("Weight of Node '{node}' from weight dict is not a positive number".format(
                         node=node))
-
-        if not isinstance(class_labels, list):
-            raise ValueError("Class labels must be a list of names")
-
-        if main_class not in class_labels:
-            raise ValueError("The main class is not defined as a class label")
 
         if not is_sink_node(sink_node):
             raise ValueError("The node '{node}' is not a sink node".format(node=sink_node))
@@ -74,8 +73,6 @@ class Task(dict):
             "source_node": source_node,
             "sink_node": sink_node,
             "optimizer": optimizer,
-            "class_labels": tuple(class_labels),
-            "main_class": main_class,
             "metric": metric,
             "whitelist": set(whitelist) if whitelist is not None else set(),
             "blacklist": set(blacklist) if blacklist is not None else set(),
@@ -93,9 +90,7 @@ class Task(dict):
             raise ValueError("'%s' is either not a source node or is not able to emit data type '%s'" % (
                 source_node, self.data_set_type))
 
-        self._log_task()
-
-    def _log_task(self):
+    def log_task(self):
         format_ = pprint.pformat(self, indent=4)
         self._logger.debug("Task '{task}': {format}".format(task=self, format=format_))
 
