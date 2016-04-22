@@ -99,6 +99,8 @@ class PySPACEOptimizer(object):
         :type evaluations: int
         :param pass_: The pass this optimization is done in.
         :type pass_: int
+        :param performance_graphic: The performance graphic which should be updated after each pass
+        :type performance_graphic: PerformanceGraphic
         :return: A tuple containing, the loss, the best pipeline and the parameters for this pipeline
         :rtype tuple[float, Pipeline, dict[str, object]]
         """

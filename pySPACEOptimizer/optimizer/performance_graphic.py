@@ -1,4 +1,5 @@
 import abc
+import logging
 from collections import defaultdict
 from matplotlib import pyplot
 
@@ -6,7 +7,7 @@ from matplotlib import pyplot
 class PerformanceGraphic(object):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, window_size=1, file_path="performance.png"):
+    def __init__(self, window_size=1, file_path="performance.pdf"):
         self.__file_path = file_path
         self.__window_size = window_size
         self.__tids = defaultdict(lambda: [])
@@ -14,6 +15,7 @@ class PerformanceGraphic(object):
         self.__mean = defaultdict(lambda: 0)
         self.__bests = defaultdict(lambda: float("inf"))
         self.__current_indexes = defaultdict(lambda: 0)
+        self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
     @abc.abstractmethod
     def _get_loss(self, pipeline, trial_number):
@@ -24,6 +26,10 @@ class PerformanceGraphic(object):
         raise NotImplementedError()
 
     def update(self, pipelines, number_of_evaluations):
+        figure = pyplot.figure()
+        pyplot.xlabel("Trial number")
+        pyplot.ylabel("Loss")
+
         for pipeline in pipelines:
             number_of_trials = self._number_of_trials(pipeline)
             for i in range(self.__current_indexes[pipeline], self.__current_indexes[pipeline] + number_of_evaluations):
@@ -62,9 +68,10 @@ class PerformanceGraphic(object):
             bests.append(best)
         pyplot.plot(self.__bests.keys(), bests, label="Best loss at trial")
 
-        pyplot.xlabel("Trial number")
-        pyplot.ylabel("Loss")
-        pyplot.legend()
-        pyplot.savefig(self.__file_path)
+        if len(pipelines) <= 4:
+            # Plot only a legend if the number of pipelines is
+            # at most 4, because otherwise we don't see anything from the graph
+            pyplot.legend(loc='best', fancybox=True, framealpha=0.3)
+        pyplot.savefig(self.__file_path, transparent=True, format="pdf")
         # Clear the figure for next plot
-        pyplot.clf()
+        pyplot.close(figure)

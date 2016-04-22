@@ -74,21 +74,25 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
     pipeline_space = [(pipeline, backend), pipeline.pipeline_space]
     # Create the trials object loading the persistent trials
-    trials = trials_class(trials_dir=pipeline.base_result_dir)
-    # Do the evaluation
-    # Log errors from here with special logger
-    with OutputLogger(std_out_logger=None,
-                      std_err_logger=pipeline.get_error_logger()):
-        for trial in trials.minimize(fn=__minimize,
-                                     space=pipeline_space,
-                                     algo=suggestion_algorithm,
-                                     max_evals=evaluations,
-                                     rseed=int(time.time())):
-            # Put the result into the queue
-            queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
-    # Return the best trial, in case no evaluation has been done
-    best_trial = trials.best_trial
-    return best_trial.loss, pipeline, best_trial.parameters(pipeline)
+    try:
+        trials = trials_class(trials_dir=pipeline.base_result_dir)
+        # Do the evaluation
+        # Log errors from here with special logger
+        with OutputLogger(std_out_logger=None,
+                          std_err_logger=pipeline.get_error_logger()):
+            for trial in trials.minimize(fn=__minimize,
+                                         space=pipeline_space,
+                                         algo=suggestion_algorithm,
+                                         max_evals=evaluations,
+                                         rseed=int(time.time())):
+                # Put the result into the queue
+                queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
+        # Return the best trial, in case no evaluation has been done
+        best_trial = trials.best_trial
+        return best_trial.loss, pipeline, best_trial.parameters(pipeline)
+    except IOError, e:
+        pipeline.get_error_logger().error(e.message)
+        return float("inf"), None, None
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -144,8 +148,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
                         best = value
                         self.store_best_result(best_pipeline=best[1],
                                                best_parameters=best[2])
-                # Update the performance graphic
-                performance_graphic.update(pipelines, max_evals)
                 break
             else:
                 try:
@@ -158,12 +160,13 @@ class HyperoptOptimizer(PySPACEOptimizer):
                         self.store_best_result(best_pipeline=pipeline,
                                                best_parameters=parameters)
                     # Update the performance graphic
-                    performance_graphic.update(pipelines, max_evals)
                     progress_bar.update(progress_bar.currval + 1)
                 except Empty:
                     pass
         else:
             self._logger.info("Reached maximal evaluation time, breaking evaluation")
+        # Update the performance graphic
+        performance_graphic.update(pipelines, max_evals)
         return best
 
     def _create_node(self, node_name):
