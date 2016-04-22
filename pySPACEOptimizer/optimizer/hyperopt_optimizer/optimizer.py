@@ -9,12 +9,11 @@ from Queue import Empty
 from multiprocessing import Manager
 
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
-
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
+
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
-from pySPACEOptimizer.optimizer.hyperopt_optimizer.performance_graphic import PerformanceGraphic, \
-    HyperoptPerformanceGraphic
+from pySPACEOptimizer.optimizer.hyperopt_optimizer.performance_graphic import HyperoptPerformanceGraphic
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials, \
     PersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
