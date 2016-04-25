@@ -114,10 +114,15 @@ class Pipeline(object):
         backend = pySPACE.create_backend(backend)
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
                                              base_result_dir=self.base_result_dir)
-        with open(os.devnull, "w") as output:
-            with OutputRedirecter(std_out=output, std_err=sys.stderr):
-                pySPACE.run_operation(backend, operation)
-        return operation.get_output_directory()
+        try:
+            with open(os.devnull, "w") as output:
+                with OutputRedirecter(std_out=output, std_err=sys.stderr):
+                    pySPACE.run_operation(backend, operation)
+            return operation.get_output_directory()
+        except Exception, e:
+            # Kill all remaining processes
+            backend.terminate()
+            raise e
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
