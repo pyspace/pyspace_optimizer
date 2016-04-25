@@ -24,14 +24,14 @@ def main(args):
     trials = load(arguments.trials)
 
     # Calculate the average for each step and the best loss
-    x, steps, bests, averages, averages_x = [], [], [], [], []
+    tids, steps, bests, averages, averages_tids = [], [], [], [], []
     sum_of_losses = 0
     num_of_losses = 0
     best = float("inf")
     for i in range(len(trials)):
         if trials[i]["state"] == JOB_STATE_DONE:
             # First append the X coordinate
-            x.append(trials[i]["tid"])
+            tids.append(trials[i]["tid"])
 
             # Then calculate the step average
             sum_of_losses += trials[i]["result"]["loss"]
@@ -58,7 +58,7 @@ def main(args):
                     if loss < float("inf"):
                         mean += loss
                         num_of_averages += 1
-                averages_x.append(i)
+                averages_tids.append(i)
                 if num_of_averages > 0:
                     averages.append(mean / num_of_averages)
                 else:
@@ -72,9 +72,9 @@ def main(args):
 
     # Plot the results
     pyplot.title("Performance of a pipeline during optimization")
-    pyplot.plot(x, steps, label="Average loss per step")
-    pyplot.plot(x, bests, label="Best loss at trial")
-    pyplot.plot(averages_x, averages, label="SMA of %d" % arguments.window_size)
+    pyplot.plot(tids, steps, label="Average loss per step")
+    pyplot.plot(tids, bests, label="Best loss at trial")
+    pyplot.plot(averages_tids, averages, label="SMA of %d" % arguments.window_size)
     pyplot.xlabel("Trial number")
     pyplot.ylabel("Loss")
     pyplot.legend()
