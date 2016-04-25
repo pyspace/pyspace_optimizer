@@ -90,8 +90,8 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
         # Return the best trial, in case no evaluation has been done
         best_trial = trials.best_trial
         return best_trial.loss, pipeline, best_trial.parameters(pipeline)
-    except IOError, e:
-        pipeline.get_error_logger().error(e.message)
+    except IOError:
+        pipeline.get_error_logger().exception("Error optimizing Pipeline:")
         return float("inf"), None, None
 
 
@@ -125,6 +125,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
             # Read the queue until all jobs are done or the max evaluation time is reached
             return self._read_queue(pipelines=pipelines, max_evals=evaluations, results=results,
                                     performance_graphic=performance_graphic)
+        except Exception:
+            self._logger.exception("Error doing optimization pass, returning infinite loss.")
+            return float("inf"), None, None
         finally:
             pool.terminate()
             pool.join()
