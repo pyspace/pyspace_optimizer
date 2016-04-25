@@ -120,12 +120,15 @@ class PySPACEOptimizer(object):
         # Get the number of evaluations to make
         evaluations = self._task["evaluations_per_pass"]
         passes = self._task["passes"]
+        window_size = self._task["window_size"]
 
-        performance_graphic = self.PERFORMANCE_GRAPHIC_CLASS(window_size=evaluations)
+        performance_graphic = PerformanceGraphic(window_size=window_size)
         for pass_ in range(1, passes + 1):
             self._logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
             result = self._do_optimization(evaluations=evaluations, pass_=pass_,
                                            performance_graphic=performance_graphic)
+            # Update the performance graphic
+            performance_graphic.update()
             if result[0] < best[0]:
                 self._logger.info("Pipeline '%r' with parameters '%s' selected as best", result[1], result[2])
                 best = result

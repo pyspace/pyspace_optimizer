@@ -13,7 +13,6 @@ from pySPACE.resources.dataset_defs.performance_result import PerformanceResultS
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
 
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
-from pySPACEOptimizer.optimizer.hyperopt_optimizer.performance_graphic import HyperoptPerformanceGraphic
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import MultiprocessingPersistentTrials, \
     PersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
@@ -45,27 +44,25 @@ def __minimize(spec):
             mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
 
             loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
-            logger.debug("Loss: {loss:.3f}".format(loss=loss))
-            return {
-                "loss": loss,
-                "status": STATUS_OK
-            }
+            status = STATUS_OK
         else:
             logger.debug("No results found. "
                          "Returning infinite loss and failed state")
-            return {
-                "loss": float("inf"),
-                "status": STATUS_FAIL
-            }
+            loss = float("inf"),
+            status = STATUS_FAIL
     except Exception:
         logger.exception("Error minimizing the pipeline:")
-        return {
-            "loss": float("inf"),
-            "status": STATUS_FAIL
-        }
+        loss = float("inf"),
+        status = STATUS_FAIL
+
+    logger.debug("Loss: {loss:.3f}".format(loss=loss))
+    return {
+        "loss": loss,
+        "status": status
+    }
 
 
-def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=PersistentTrials):
+def optimize_pipeline(backend, queue, pipeline, evaluations, pass_, trials_class=PersistentTrials):
     # Get the base result dir and append it to the arguments
     # Store each pipeline in it's own folder
     task = pipeline.configuration
@@ -83,21 +80,17 @@ def optimize_pipeline(backend, queue, pipeline, evaluations, trials_class=Persis
             for trial in trials.minimize(fn=__minimize,
                                          space=pipeline_space,
                                          algo=suggestion_algorithm,
-                                         max_evals=evaluations,
+                                         evaluations=evaluations,
+                                         pass_=pass_,
                                          rseed=int(time.time())):
                 # Put the result into the queue
-                queue.put((trial.loss, pipeline, trial.parameters(pipeline)))
-        # Return the best trial, in case no evaluation has been done
-        best_trial = trials.best_trial
-        return best_trial.loss, pipeline, best_trial.parameters(pipeline)
+                queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
     except IOError:
         pipeline.get_error_logger().exception("Error optimizing Pipeline:")
-        return float("inf"), None, None
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
     TRIALS_CLASS = MultiprocessingPersistentTrials
-    PERFORMANCE_GRAPHIC_CLASS = HyperoptPerformanceGraphic
 
     def __init__(self, task, backend, best_result_file):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
@@ -115,7 +108,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
             for pipeline in self._generate_pipelines():
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
-                                                args=(self._backend, self._queue, pipeline, evaluations * pass_,
+                                                args=(self._backend, self._queue, pipeline, evaluations, pass_,
                                                       self.TRIALS_CLASS)))
                 pipelines.append(pipeline)
             self._logger.debug("Done generating pipelines")
@@ -144,32 +137,26 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # the queue is empty and all workers are finished: break
                 # but first check for errors:
                 for result in results:
-                    value = result.get()
                     if not result.successful():
-                        raise value
-                    if value[0] < best[0]:
-                        best = value
-                        self.store_best_result(best_pipeline=best[1],
-                                               best_parameters=best[2])
+                        raise result.get()
                 break
             else:
                 try:
                     result = self._queue.get(timeout=1)
-                    loss, pipeline, parameters = result
+                    id, loss, pipeline, parameters = result
                     self._logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s",
                                        pipeline, loss, parameters)
                     if loss < best[0]:
                         best = [loss, pipeline, parameters]
                         self.store_best_result(best_pipeline=pipeline,
                                                best_parameters=parameters)
+                    performance_graphic.add(pipeline, id, loss)
                     # Update the performance graphic
                     progress_bar.update(progress_bar.currval + 1)
                 except Empty:
                     pass
         else:
             self._logger.info("Reached maximal evaluation time, breaking evaluation")
-        # Update the performance graphic
-        performance_graphic.update(pipelines, max_evals)
         return best
 
     def _create_node(self, node_name):
@@ -198,7 +185,7 @@ class SerialHyperoptOptimizer(HyperoptOptimizer):
             for pipeline in self._generate_pipelines():
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
-                                                args=(self._backend, self._queue, pipeline, evaluations * pass_,
+                                                args=(self._backend, self._queue, pipeline, evaluations, pass_,
                                                       self.TRIALS_CLASS)))
                 pipelines.append(pipeline)
             self._logger.debug("Done generating pipelines")
