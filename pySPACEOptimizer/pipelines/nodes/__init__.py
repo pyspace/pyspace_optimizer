@@ -2,12 +2,11 @@ import copy
 import inspect
 
 from pySPACE.missions import nodes
-from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, ChoiceParameter, NormalParameter, QNormalParameter, \
-    BooleanParameter
+from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, PARAMETER_TYPES, ChoiceParameter, NormalParameter, \
+    QNormalParameter, BooleanParameter
 
 
 class PipelineNode(object):
-
     def __init__(self, node_name, task):
         """
         Creates a new node for a pipeline using the given pySPACE node name.
@@ -25,9 +24,16 @@ class PipelineNode(object):
         self.__optimization_parameters = None
         self._values = set()
         for parameter, values in task.default_parameters(self).iteritems():
-            if not isinstance(values, list):
-                values = [values]
-            self._values.add(ChoiceParameter(parameter_name=parameter, choices=values))
+            if isinstance(values, dict):
+                type = values.get("type", None)
+                if type is not None:
+                    del values["type"]
+                    values["parameter_name"] = parameter
+                    self._values.add(PARAMETER_TYPES[type](**values))
+            else:
+                if not isinstance(values, list):
+                    values = [values]
+                self._values.add(ChoiceParameter(parameter_name=parameter, choices=values))
 
     @property
     def parameters(self):
