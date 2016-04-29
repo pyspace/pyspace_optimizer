@@ -44,6 +44,7 @@ class PySPACEOptimizer(object):
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__pipelines = []
         self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"])
+        self.__performance_graphic.start()
 
     @property
     def logger(self):
@@ -92,3 +93,7 @@ class PySPACEOptimizer(object):
         :rtype: tuple[float, Pipeline, dict[str, object]]
         """
         raise NotImplementedError()
+
+    def __del__(self):
+        self.__performance_graphic.stop()
+        self.__performance_graphic.join()

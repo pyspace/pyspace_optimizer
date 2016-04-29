@@ -8,15 +8,14 @@ import warnings
 from Queue import Empty
 from multiprocessing import Manager
 
-import pySPACE
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
+import pySPACE
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
-from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
+from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar, ETA
 from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import PersistentTrials
 from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
-from pySPACEOptimizer.pipelines import Pipeline
 from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
 from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
@@ -138,9 +137,10 @@ class HyperoptOptimizer(PySPACEOptimizer):
         evaluations = self._task["evaluations_per_pass"]
         passes = self._task["passes"]
         # Create a progress bar
-        progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
+        progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar(), ' ', ETA()],
                                    maxval=evaluations * passes * len(results),
                                    fd=FileLikeLogger(logger=self._logger, log_level=logging.INFO))
+        progress_bar.update(0)
         while True:
             if self._queue.empty() and results is not None and all([result.ready() for result in results]):
                 # the queue is empty and all workers are finished: break
@@ -163,7 +163,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
                     progress_bar.update(progress_bar.currval + 1)
                     # Update the performance graphic
                     self._performance_graphic_add(pipeline, id_, loss)
-                    self._performance_graphic_update()
                 except Empty:
                     pass
         else:
