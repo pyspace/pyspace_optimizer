@@ -87,10 +87,12 @@ class PerformanceGraphic(threading.Thread):
 
     def run(self):
         while not self.__stopped.isSet():
-            # Wait one minute
-            self.__stopped.wait(timeout=60)
             # Update the performance graphic
             self.__update()
+            # Wait one minute
+            self.__stopped.wait(timeout=60)
 
     def stop(self):
+        # Update the performance graphic
+        self.__update()
         self.__stopped.set()
