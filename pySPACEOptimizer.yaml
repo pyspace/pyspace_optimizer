@@ -23,7 +23,7 @@ handlers:
     level: DEBUG
     filename: pySPACEOptimizer.pylog
 
-  pipelines_handler:
+  pipeline_handler:
     class: logging.handlers.RotatingFileHandler
     formatter: file_formatter
     level: DEBUG
@@ -58,13 +58,13 @@ loggers:
       - console
       - file
 
-  pySPACEOptimizer.pipelines:
+  pySPACEOptimizer.pipeline:
     level: DEBUG
     propagate: False
     handlers:
-      - pipelines_handler
+      - pipeline_handler
 
-  pySPACEOptimizer.pipelines.errors:
+  pySPACEOptimizer.pipeline_errors:
     level: ERROR
     propagate: False
     handlers:

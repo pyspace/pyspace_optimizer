@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 import abc
 import logging
-import os
-
-import shutil
 
 from pySPACEOptimizer.optimizer.performance_graphic import PerformanceGraphic
 from pySPACEOptimizer.pipeline_generator import PipelineGenerator
@@ -46,8 +43,19 @@ class PySPACEOptimizer(object):
             self._best_result_file = "%s_best.yaml" % task["data_set_path"]
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__pipelines = []
+        self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"])
 
-    def store_best_result(self, best_pipeline, best_parameters):
+    @property
+    def logger(self):
+        return self._logger
+
+    def _performance_graphic_add(self, pipeline, id_, loss):
+        self.__performance_graphic.add(pipeline, id_, loss)
+
+    def _performance_graphic_update(self):
+        self.__performance_graphic.update()
+
+    def _store_best_result(self, best_pipeline, best_parameters):
         """
         :type best_pipeline: Pipeline
         :type best_parameters: dict[str, list[object]]
@@ -60,17 +68,10 @@ class PySPACEOptimizer(object):
 
     def _generate_pipelines(self):
         if not self.__pipelines:
-            for pipeline in PipelineGenerator(self._task):
-                self._logger.debug("Testing Pipeline: %s", pipeline)
+            for node_chain in PipelineGenerator(self._task):
                 pipeline = Pipeline(configuration=self._task,
-                                    node_chain=[self._create_node(node_name) for node_name in pipeline])
-                if self._task.get("restart_evaluation", False) and os.path.isdir(pipeline.base_result_dir):
-                    # Delete the old values and start over again
-                    try:
-                        shutil.rmtree(pipeline.base_result_dir)
-                        os.makedirs(pipeline.base_result_dir)
-                    except OSError as exc:
-                        pipeline.get_logger().warning("Error while trying to remove the old data: %s", exc)
+                                    node_chain=[self._create_node(node) for node in node_chain])
+                self._logger.debug("Testing Pipeline: %s", pipeline)
                 self.__pipelines.append(pipeline)
                 yield pipeline
         else:
@@ -79,33 +80,9 @@ class PySPACEOptimizer(object):
 
     @abc.abstractmethod
     def _create_node(self, node_name):
-        """
-        Creates a new node for the given node name.
-
-        :param node_name: The name of the node to create an object for.
-        :type node_name: str
-        :return: A new node with the given node name.
-        :rtype: PipelineNode
-        """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _do_optimization(self, evaluations, pass_, performance_graphic):
-        """
-        Do a single evaluation step using `evaluations` evaluations.
-        The `pass_` parameter is used to determinate the current pass this optimizer is in.
-
-        :param evaluations: The number of evaluations to do.
-        :type evaluations: int
-        :param pass_: The pass this optimization is done in.
-        :type pass_: int
-        :param performance_graphic: The performance graphic which should be updated after each pass
-        :type performance_graphic: PerformanceGraphic
-        :return: A tuple containing, the loss, the best pipeline and the parameters for this pipeline
-        :rtype tuple[float, Pipeline, dict[str, object]]
-        """
-        raise NotImplementedError()
-
     def optimize(self):
         """
         Optimize all pipelines and return the best found parameters.
@@ -114,24 +91,4 @@ class PySPACEOptimizer(object):
         :return: The best parameters found for this pipeline
         :rtype: tuple[float, Pipeline, dict[str, object]]
         """
-        best = [float("inf"), None, None]
-
-        self._logger.info("Optimizing Pipelines")
-        # Get the number of evaluations to make
-        evaluations = self._task["evaluations_per_pass"]
-        passes = self._task["passes"]
-        window_size = self._task["window_size"]
-
-        performance_graphic = PerformanceGraphic(window_size=window_size)
-        for pass_ in range(1, passes + 1):
-            self._logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
-            result = self._do_optimization(evaluations=evaluations, pass_=pass_,
-                                           performance_graphic=performance_graphic)
-            # Update the performance graphic
-            performance_graphic.update()
-            if result[0] < best[0]:
-                self._logger.info("Pipeline '%r' with parameters '%s' selected as best", result[1], result[2])
-                best = result
-            self._logger.debug("Best result of pass %d: %s" % (pass_, best))
-        self._logger.info("Best result: Pipeline %s with %s at loss %.2f" % (best[1], best[2], best[0]))
-        return best
+        raise NotImplementedError()

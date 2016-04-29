@@ -10,11 +10,12 @@ class PipelineTestCase(PySPACETestCase):
     def test_operation_spec(self):
         experiment = Task(input_path="example_summary_split",
                           optimizer="PySPACEOptimizer",
-                          class_labels=["Standard","Target"],
+                          class_labels=["Standard", "Target"],
                           main_class="Target",
                           evaluations_per_pass=1)
         pipeline = Pipeline(configuration=experiment,
-                            node_chain=[PipelineNode(node, experiment) for node in ["SorSvmNode", "PerformanceSinkNode"]])
+                            node_chain=[PipelineNode(node, experiment)
+                                        for node in ["SorSvmNode", "PerformanceSinkNode"]])
         operation_spec = pipeline.operation_spec()
         self.assertIsNotNone(operation_spec)
         parsed = yaml.load(operation_spec["base_file"])

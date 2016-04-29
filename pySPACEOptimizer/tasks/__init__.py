@@ -7,7 +7,6 @@ except ImportError:
     from yaml import Loader
 
 
-
 TASK_ENTRY_POINT = "pySPACEOptimizer.tasks"
 
 
@@ -36,13 +35,13 @@ def task_factory(task_description):
     :return: A new Task-Object corresponding to the given description.
     :rtype: T <= Task
     """
-    type = task_description["type"]
-    entry_points = [entry_point for entry_point in pkg_resources.iter_entry_points(TASK_ENTRY_POINT, type)]
+    type_ = task_description["type"]
+    entry_points = [entry_point for entry_point in pkg_resources.iter_entry_points(TASK_ENTRY_POINT, type_)]
     if len(entry_points) > 1:
         raise RuntimeWarning("More than one entry point found for task type '%s', please check installation.\n"
-                             "Taking first entry point and ignoring all others" % type)
+                             "Taking first entry point and ignoring all others" % type_)
     elif not entry_points:
-        raise RuntimeError("No entry point found for task type '%s', please check installation" % type)
+        raise RuntimeError("No entry point found for task type '%s', please check installation" % type_)
     task = entry_points[0].resolve()(**task_description)
     task.log_task()
     return task

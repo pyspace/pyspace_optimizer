@@ -3,8 +3,8 @@
 from __future__ import division
 
 import glob
-import os
 import logging
+import os
 import pprint
 
 import pySPACE
@@ -178,7 +178,7 @@ class Task(dict):
     def data_set_type(self):
         # Determinate the type of the data set
         if not os.path.isabs(self["data_set_path"]):
-            # we need to have an absolut path here, assume it's relative to the storage loation
+            # we need to have an absolute path here, assume it's relative to the storage location
             data_set_dir = os.path.join(pySPACE.configuration.storage, self["data_set_path"])
         else:
             data_set_dir = self["data_set_path"]

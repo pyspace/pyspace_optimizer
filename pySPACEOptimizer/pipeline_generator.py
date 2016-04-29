@@ -7,7 +7,6 @@ from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_sink_node,
 
 
 class PipelineGenerator(object):
-
     def __init__(self, configuration):
         """
         Creates a new pipeline generator.
@@ -71,35 +70,36 @@ class PipelineGenerator(object):
             # the node is not contained in the pipeline and:
             # - it is the first node and it's a source node
             # - it's not the first node and not a sink or source node
-            if node not in pipeline_array[:index] and ((first_node and is_source_node(node)) or
-                    (not first_node and not is_sink_node(node) and not is_source_node(node))):
-                self._logger.debug("\t" * index + "Appending '%s'", node)
-                pipeline_array[index] = node
-                pipeline_types[index] = get_node_type(node)
-                node_output = self._get_output_type(node, input_type)
-                if node_output is not None:
-                    if node_output in self._sink_node_inputs:
-                        # Valid Pipeline, append the performance sink node
-                        # and yield a list containing exactly the pipeline
-                        pipeline_array[index + 1] = self._sink_node
-                        pipeline_types[index + 1] = get_node_type(self._sink_node)
-                        if self._required_node_types.issubset(pipeline_types[:index + 2]) and \
-                                self._required_nodes.issubset(pipeline_array[:index + 2]):
-                            # All required types and nodes are in the pipeline
-                            # it might work.. yield it
-                            result = list(pipeline_array[:index + 2])
-                            self._logger.debug("\t" * index + "Valid pipeline found: '%s'", result)
-                            yield result
-                        else:
-                            self._logger.debug("\t" * index + "Not all types required types contained: %s",
-                                               pipeline_types[:index + 2])
-                    # Try to extend the pipeline
-                    self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
-                    for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1):
-                        yield pipeline
-                else:
-                    self._logger.debug("\t" * index +
-                                       "Skipping node '%s' because node  get_output_type returned None" % node)
+            if node not in pipeline_array[:index]:
+                if (first_node and is_source_node(node)) or (
+                                not first_node and not is_sink_node(node) and not is_source_node(node)):
+                    self._logger.debug("\t" * index + "Appending '%s'", node)
+                    pipeline_array[index] = node
+                    pipeline_types[index] = get_node_type(node)
+                    node_output = self._get_output_type(node, input_type)
+                    if node_output is not None:
+                        if node_output in self._sink_node_inputs:
+                            # Valid Pipeline, append the performance sink node
+                            # and yield a list containing exactly the pipeline
+                            pipeline_array[index + 1] = self._sink_node
+                            pipeline_types[index + 1] = get_node_type(self._sink_node)
+                            if self._required_node_types.issubset(pipeline_types[:index + 2]) and \
+                                    self._required_nodes.issubset(pipeline_array[:index + 2]):
+                                # All required types and nodes are in the pipeline
+                                # it might work.. yield it
+                                result = list(pipeline_array[:index + 2])
+                                self._logger.debug("\t" * index + "Valid pipeline found: '%s'", result)
+                                yield result
+                            else:
+                                self._logger.debug("\t" * index + "Not all types required types contained: %s",
+                                                   pipeline_types[:index + 2])
+                        # Try to extend the pipeline
+                        self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
+                        for pipeline in self._make_pipeline(pipeline_array, node_output, pipeline_types, index + 1):
+                            yield pipeline
+                    else:
+                        self._logger.debug("\t" * index +
+                                           "Skipping node '%s' because node  get_output_type returned None" % node)
 
     def __iter__(self):
         # Generate all pipelines

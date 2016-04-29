@@ -23,7 +23,8 @@ class HyperoptNode(PipelineNode):
             value = parameter
         return value
 
-    def _handle_normal_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_normal_parameter(name, parameter):
         if isinstance(parameter, QLogNormalParameter):
             return hp.qlognormal(name, parameter.mu, parameter.sigma, parameter.q)
         elif isinstance(parameter, LogNormalParameter):
@@ -33,7 +34,8 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, NormalParameter):
             return hp.normal(name, parameter.mu, parameter.sigma)
 
-    def _handle_uniform_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_uniform_parameter(name, parameter):
         if isinstance(parameter, QLogUniformParameter):
             return hp.qloguniform(name, parameter.min, parameter.max, parameter.q)
         elif isinstance(parameter, LogUniformParameter):
@@ -43,7 +45,8 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, UniformParameter):
             return hp.uniform(name, parameter.min, parameter.max)
 
-    def _handle_choice_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_choice_parameter(name, parameter):
         return hp.choice(name, parameter.choices)
 
     def parameter_space(self):

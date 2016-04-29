@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 import copy
 import logging
+import logging.handlers
 import os
-
+import shutil
 import sys
+
 import yaml
 
 import pySPACE
 from pySPACEOptimizer.pipelines.nodes import PipelineNode
 from pySPACEOptimizer.tasks.base_task import Task
-from pySPACEOptimizer.utils import OutputRedirecter
+from pySPACEOptimizer.utils import output_diverter
 
 try:
     from yaml import CSafeDumper as Dumper
@@ -20,7 +22,7 @@ except ImportError:
 
 class Pipeline(object):
 
-    def __init__(self, configuration, node_chain=None):
+    def __init__(self, configuration, node_chain):
         """
         Creates a new node with the given `name` and `data_set_path`.
         The pipeline uses the given nodes for processing.
@@ -28,19 +30,50 @@ class Pipeline(object):
         :param configuration: The configuration to use for this Pipeline
         :type configuration: Task
         :param node_chain: A list of node names to create the pipeline with
-        :type node_chain: [PipelineNode]
+        :type node_chain: list[PipelineNode]
 
         :return: A new PySPACEPipeline with the given name, nodes and data set path
         :rtype: Pipeline
         """
-        if node_chain is not None:
-            self._nodes = copy.deepcopy(node_chain)
-        else:
-            self._nodes = []
+        self._nodes = copy.deepcopy(node_chain)
         self._input_path = configuration["data_set_path"]
         self.configuration = configuration
-        self._logger = self.get_logger()
-        self._logger.info("{object!s} is {object!r}".format(object=self))
+        error = (None, None)
+        # Check if the evaluation should be restarted
+        if configuration.get("restart_evaluation", False) and os.path.isdir(self.base_result_dir):
+            # Delete the old values and start over again
+            try:
+                shutil.rmtree(self.base_result_dir)
+            except OSError:
+                error = ("Error while deleting old data:", sys.exc_info())
+        if not os.path.isdir(self.base_result_dir):
+            os.makedirs(self.base_result_dir)
+
+        # Create a logger for this pipeline
+        self._logger = None
+        self._error_logger = None
+
+        # Log a possible error
+        if error[0] is not None:
+            self.error_logger.error(msg=error[0], exc_info=error[1])
+        self.logger.info("{object!s} is {object!r}".format(object=self))
+
+    def __patch_logger(self, name):
+        logger = logging.getLogger(name)
+        # And change the handler to have a single file for each pipeline
+        handlers = copy.copy(logger.handlers or logger.parent.handlers)
+        for handler in handlers:
+            if isinstance(handler, logging.FileHandler):
+                # Replace with a new handler that writes to the correct path
+                file_name = handler.baseFilename.rsplit(os.path.sep, 1)[1]
+                file_path = os.path.join(self.base_result_dir, file_name)
+                new_handler = logging.handlers.RotatingFileHandler(file_path, mode=handler.mode)
+                new_handler.setLevel(handler.level)
+                new_handler.setFormatter(handler.formatter)
+                new_handler.set_name(handler.name)
+                # add the new handler
+                logger.addHandler(new_handler)
+        return logger
 
     @property
     def nodes(self):
@@ -97,26 +130,35 @@ class Pipeline(object):
         pipeline_hash = str(hash(self)).replace("-", "_")
         return os.path.join(os.getcwd(), "operation_results", pipeline_hash)
 
-    def execute(self, parameter_ranges=None, backend=u"serial"):
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = self.__patch_logger("pySPACEOptimizer.pipeline.{pipeline}".format(pipeline=self))
+        return self._logger
+
+    @property
+    def error_logger(self):
+        if self._error_logger is None:
+            self._error_logger = self.__patch_logger("pySPACEOptimizer.pipeline_errors.{pipeline}".format(pipeline=self))
+        return self._error_logger
+
+    def execute(self, backend, parameter_ranges=None):
         """
         Executes the pipeline using the given backend.
 
+        :param backend: The backend to use for the execution.
+        :type backend: Backend
         :param parameter_ranges: The ranges to let pySPACE select the values for the parameters for.
         :type parameter_ranges: dict[str, list[object]]
-        :param backend: The backend to use for execution. (Default: serial)
-        :type backend: unicode
-        :param base_result_dir: The base directory to put the logfiles into.
-        :type base_result_dir: unicode
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
         # noinspection PyBroadException
-        backend = pySPACE.create_backend(backend)
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
                                              base_result_dir=self.base_result_dir)
         try:
             with open(os.devnull, "w") as output:
-                with OutputRedirecter(std_out=output, std_err=sys.stderr):
+                with output_diverter(std_out=output, std_err=sys.stderr):
                     pySPACE.run_operation(backend, operation)
             return operation.get_output_directory()
         except Exception, e:
@@ -151,17 +193,7 @@ class Pipeline(object):
         return "Pipeline<{hash!s:>20s}>".format(hash=hash(self))
 
     def __getstate__(self):
-        return {
-            "_nodes": self._nodes,
-            "configuration": self.configuration,
-            "_input_path": self._input_path}
-
-    def get_logger(self):
-        return logging.getLogger("{module}.{object}".format(module=self.__class__.__module__, object=self))
-
-    def get_error_logger(self):
-        return logging.getLogger("pySPACEOptimizer.pipelines.errors")
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._logger = self.get_logger()
+        new_dict = copy.copy(self.__dict__)
+        new_dict["_logger"] = None
+        new_dict["_error_logger"] = None
+        return new_dict

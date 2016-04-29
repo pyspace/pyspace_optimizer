@@ -24,7 +24,7 @@ class PipelineGeneratorTests(PySPACETestCase):
                     source_node="FeatureVectorSourceNode",
                     sink_node="PerformanceSinkNode",
                     whitelist=["SorSvmNode", "GaussianFeatureNormalizationNode"],
-                          evaluations_per_pass=1)
+                    evaluations_per_pass=1)
         check = task["whitelist"]
         check.add(task["source_node"])
         check.add(task["sink_node"])

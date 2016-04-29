@@ -16,7 +16,7 @@ class ClassificationTask(Task):
         if main_class not in class_labels:
             raise ValueError("The main class is not defined as a class label")
         self.update({"class_labels": tuple(class_labels),
-                     "main_class": main_class,})
+                     "main_class": main_class})
 
     @property
     def required_node_types(self):

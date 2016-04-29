@@ -3,7 +3,7 @@ import inspect
 
 from pySPACE.missions import nodes
 from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, ChoiceParameter, NormalParameter, QNormalParameter, \
-    BooleanParameter, UniformParameter, ParameterDecorator
+    BooleanParameter
 
 
 class PipelineNode(object):

@@ -17,11 +17,11 @@ class PerformanceGraphic(object):
         self.__bests = defaultdict(lambda: float("inf"))
         self.__current_indexes = defaultdict(lambda: 0)
 
-    def add(self, pipeline, id, loss):
+    def add(self, pipeline, id_, loss):
         trials = self.__trials[pipeline]
-        if len(trials) <= id:
-            trials.extend([float("inf") for _ in range(len(trials), id + 1)])
-        trials[id] = loss
+        if len(trials) <= id_:
+            trials.extend([float("inf") for _ in range(len(trials), id_ + 1)])
+        trials[id_] = loss
 
     def update(self):
         figure = pyplot.figure(figsize=(11, 8), dpi=80)

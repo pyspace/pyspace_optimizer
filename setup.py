@@ -4,8 +4,8 @@ from setuptools import setup
 from pySPACEOptimizer.optimizer import OPTIMIZER_ENTRY_POINT
 from pySPACEOptimizer.tasks import TASK_ENTRY_POINT
 
-dirname = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(dirname, "README.md"), "rb") as readme:
+directory_name = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(directory_name, "README.md"), "rb") as readme:
     description = readme.read()
 
 
@@ -18,8 +18,8 @@ setup(
     author_email="hansa@tzi.de",
     url="https://gitlab.informatik.uni-bremen.de/hansa/pyspace_optimizer",
     packages=["pySPACEOptimizer"],
-    # FIXME: Include pySPACE as depencency as soon as the setup.py of the package does install the software correctly
-    install_requires=["numpy", "hyperopt", "matplotlib"],
+    # FIXME: Include pySPACE as dependency as soon as the setup.py of the package does install the software correctly
+    install_requires=["numpy", "hyperopt", "matplotlib", 'scipy'],
     entry_points={
         "console_scripts": [
             "pySPACEOptimizer = pySPACEOptimizer.__main__:main"
@@ -27,8 +27,6 @@ setup(
         OPTIMIZER_ENTRY_POINT: [
             "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:HyperoptOptimizer",
             "SerialHyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:SerialHyperoptOptimizer",
-            "HyperoptOptimizerSerialTrials = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:HyperoptOptimizerSerialTrials",
-            "SerialHyperoptOptimizerSerialTrials = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:SerialHyperoptOptimizerSerialTrials",
         ],
         TASK_ENTRY_POINT: [
             "classification = pySPACEOptimizer.tasks.classification:ClassificationTask",

@@ -36,7 +36,7 @@ parameter_ranges:
 """
 
 
-class TaskestCase(PySPACETestCase):
+class TaskTestCase(PySPACETestCase):
 
     def test_weighted_nodes_by_input_type(self):
         node_name = "SorSvmNode"

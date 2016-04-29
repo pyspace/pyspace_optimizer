@@ -1,10 +1,8 @@
 import os
-import time
 
-from hyperopt import Trials, Domain, base, JOB_STATE_NEW, JOB_STATE_DONE
+from hyperopt import Trials, Domain, base, JOB_STATE_DONE
 
 from pySPACE.missions.nodes.decorators import ChoiceParameter
-from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.pipelines import PipelineNode
 
 try:
@@ -15,8 +13,8 @@ except ImportError:
 
 
 class Trial(object):
-    def __init__(self, id, loss, parameters):
-        self.__id = id
+    def __init__(self, id_, loss, parameters):
+        self.__id = id_
         self.__loss = loss
         self.__parameters = parameters
 
@@ -59,7 +57,6 @@ def evaluate_trial(domain, trials, trial):
 
 # noinspection PyAbstractClass
 class PersistentTrials(Trials):
-
     STORAGE_NAME = "trials.pickle"
 
     def __init__(self, trials_dir, exp_key=None, refresh=True):
@@ -118,6 +115,7 @@ class PersistentTrials(Trials):
         # JOB_STATUS_ERROR, JOB_STATUS_DONE, JOB_STATUS_RUNNING, JOB_STATUS_NEW
         def get_state(item):
             return item["state"]
+
         return sorted(self._dynamic_trials, key=get_state, reverse=True)
 
     def _update_doc(self, trial):
@@ -138,7 +136,7 @@ class PersistentTrials(Trials):
             else:
                 yield trial
         # evaluate the trials that have to be done and yield the result
-        for trial in trials_to_evaluate:
+        for trial in self._do_evaluate(domain, trials_to_evaluate):
             self._update_doc(trial=trial)
             yield trial
 
@@ -188,41 +186,3 @@ class PersistentTrials(Trials):
 
     def __getitem__(self, index):
         return self._dynamic_trials[index]
-
-
-def trials_wrapper(args):
-    return evaluate_trial(*args)
-
-
-# noinspection PyAbstractClass
-class MultiprocessingPersistentTrials(PersistentTrials):
-
-    async = False
-
-    def _do_evaluate(self, domain, trials):
-        # Every worker just has to handle one task per default
-        pool = OptimizerPool()
-
-        # Create the arguments passed to the evaluation method
-        args = [(domain, self, trial) for trial in trials]
-
-        def _yield_args():
-            for arg in args:
-                yield arg
-                # We need to sleep at least one second between two evaluations,
-                # because pySPACE names the result folders with timestamps
-                time.sleep(1)
-
-        # noinspection PyProtectedMember
-        chunksize = int(len(args) / pool._processes) if len(args) > pool._processes else 1
-
-        # noinspection PyBroadException
-        try:
-            for trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
-                yield trial
-            # Close the pool
-            pool.close()
-        except:
-            pool.terminate()
-        finally:
-            pool.join()
