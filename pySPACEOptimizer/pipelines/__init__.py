@@ -156,16 +156,10 @@ class Pipeline(object):
         # noinspection PyBroadException
         operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
                                              base_result_dir=self.base_result_dir)
-        try:
-            with open(os.devnull, "w") as output:
-                with output_diverter(std_out=output, std_err=sys.stderr):
-                    pySPACE.run_operation(backend, operation)
-            return operation.get_output_directory()
-        except Exception as e:
-            self.error_logger.exception("Error while executing the pipeline:")
-            # Kill all remaining processes
-            backend.terminate()
-            raise e
+        with open(os.devnull, "w") as output:
+            with output_diverter(std_out=output, std_err=sys.stderr):
+                pySPACE.run_operation(backend, operation)
+        return operation.get_output_directory()
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
