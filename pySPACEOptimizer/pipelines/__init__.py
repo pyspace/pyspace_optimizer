@@ -161,7 +161,8 @@ class Pipeline(object):
                 with output_diverter(std_out=output, std_err=sys.stderr):
                     pySPACE.run_operation(backend, operation)
             return operation.get_output_directory()
-        except Exception, e:
+        except Exception as e:
+            self.error_logger.exception("Error while executing the pipeline:")
             # Kill all remaining processes
             backend.terminate()
             raise e
