@@ -147,7 +147,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 # but first check for errors:
                 for result in results:
                     if not result.successful():
-                        raise result.get()
+                        self.logger.error(result.get())
                 break
             else:
                 try:
