@@ -70,9 +70,9 @@ class PySPACEOptimizer(object):
     def _generate_pipelines(self):
         if not self.__pipelines:
             for node_chain in PipelineGenerator(self._task):
+                self._logger.debug("Testing Pipeline: %s", node_chain)
                 pipeline = Pipeline(configuration=self._task,
                                     node_chain=[self._create_node(node) for node in node_chain])
-                self._logger.debug("Testing Pipeline: %s", pipeline)
                 self.__pipelines.append(pipeline)
                 yield pipeline
         else:
