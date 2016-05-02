@@ -93,17 +93,19 @@ def optimize_pipeline(task, pipeline, backend, queue):
                                          evaluations=evaluations,
                                          pass_=pass_,
                                          rseed=int(time.time())):
-                if "broken_backend" in trial["result"] and trial["result"]["broken_backend"]:
-                    # An exception occurred, the backend is broken
-                    # create a new one
-                    backend.terminate()
-                    with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-                        pipeline.set_backend(pySPACE.create_backend(backend))
-
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
                 progress_bar.update(progress_bar.currval + 1)
+                # Check the backend consistency
+                if "broken_backend" in trial["result"] and trial["result"]["broken_backend"]:
+                    # An exception occurred, the backend is broken
+                    # create a new one
+                    pipeline.error_logger.debug("Broken backend: Terminating old backend")
+                    backend.terminate()
+                    pipeline.error_logger.debug("Broken backend: Creating a new one")
+                    with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
+                        pipeline.set_backend(pySPACE.create_backend(backend))
     except IOError:
         pipeline.error_logger.exception("Error optimizing Pipeline:")
 
