@@ -22,9 +22,10 @@ from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
 def __minimize(spec):
-    pipeline, backend = spec[0]
+    pipeline = spec[0]
     task = pipeline.configuration
     parameter_ranges = {param: [value] for param, value in spec[1].items()}
+    broken_backend = False
     # noinspection PyBroadException
     try:
         # Execute the pipeline
@@ -32,7 +33,7 @@ def __minimize(spec):
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result_path = pipeline.execute(parameter_ranges=parameter_ranges, backend=backend)
+                result_path = pipeline.execute(parameter_ranges=parameter_ranges)
         # Check the result
         result_file = os.path.join(result_path, "results.csv") if result_path is not None else ""
         if os.path.isfile(result_file):
@@ -53,18 +54,21 @@ def __minimize(spec):
         pipeline.logger.exception("Error minimizing the pipeline:")
         loss = float("inf"),
         status = STATUS_FAIL
+        broken_backend = True
 
     pipeline.logger.debug("Loss: {loss:.3f}".format(loss=loss))
     return {
         "loss": loss,
-        "status": status
+        "status": status,
+        "broken_backend": broken_backend
     }
 
 
 def optimize_pipeline(task, pipeline, backend, queue):
     # Create the pipeline that should be optimized
     with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-        backend = pySPACE.create_backend(backend)
+        pipeline.set_backend(pySPACE.create_backend(backend))
+
     # Get the suggestion algorithm for the trials
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
 
@@ -84,11 +88,18 @@ def optimize_pipeline(task, pipeline, backend, queue):
                                        maxval=evaluations,
                                        fd=FileLikeLogger(logger=pipeline.logger, log_level=logging.INFO))
             for trial in trials.minimize(fn=__minimize,
-                                         space=[(pipeline, backend), pipeline.pipeline_space],
+                                         space=[pipeline, pipeline.pipeline_space],
                                          algo=suggestion_algorithm,
                                          evaluations=evaluations,
                                          pass_=pass_,
                                          rseed=int(time.time())):
+                if "broken_backend" in trial["result"] and trial["result"]["broken_backend"]:
+                    # An exception occurred, the backend is broken
+                    # create a new one
+                    backend.terminate()
+                    with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
+                        pipeline.set_backend(pySPACE.create_backend(backend))
+
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar

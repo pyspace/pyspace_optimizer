@@ -1,3 +1,4 @@
+import copy
 import os
 
 from hyperopt import Trials, Domain, base, JOB_STATE_DONE
@@ -13,31 +14,33 @@ except ImportError:
 
 
 class Trial(object):
-    def __init__(self, id_, loss, parameters):
-        self.__id = id_
-        self.__loss = loss
-        self.__parameters = parameters
+    def __init__(self, trial):
+        self.__trial = trial
 
     @property
     def id(self):
-        return self.__id
+        return self.__trial["tid"]
 
     @property
     def loss(self):
-        return self.__loss
+        return self.__trial["result"]["loss"]
 
     def parameters(self, pipeline):
+        parameters = base.spec_from_misc(self.__trial["misc"])
         new_pipeline_space = {}
-        new_parameters = self.__parameters
+        new_parameters = copy.copy(parameters)
         for node in pipeline.nodes:
             new_pipeline_space.update(PipelineNode.parameter_space(node))
 
-        for key, value in self.__parameters.items():
+        for key, value in parameters.items():
             if isinstance(new_pipeline_space[key], ChoiceParameter):
                 new_parameters[key] = new_pipeline_space[key].choices[value]
             else:
                 new_parameters[key] = value
         return new_parameters
+
+    def __getitem__(self, item):
+        return self.__trial[item]
 
 
 def evaluate_trial(domain, trials, trial):
@@ -167,7 +170,7 @@ class PersistentTrials(Trials):
         # Do one minimization step and yield the result
         for trial in self._evaluate(domain=domain, evaluations=evaluations, pass_=pass_):
             # yield the result
-            yield Trial(trial["tid"], trial["result"]["loss"], base.spec_from_misc(trial["misc"]))
+            yield Trial(trial)
         # Refresh the trials to persist the changes
         self.refresh()
 
@@ -178,7 +181,7 @@ class PersistentTrials(Trials):
     @property
     def best_trial(self):
         best_trial = super(PersistentTrials, self).best_trial
-        return Trial(best_trial["tid"], best_trial["result"]["loss"], base.spec_from_misc(best_trial["misc"]))
+        return Trial(best_trial)
 
     @property
     def num_finished(self):
