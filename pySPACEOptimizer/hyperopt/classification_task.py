@@ -8,8 +8,8 @@ def is_classification_task_node(node_name):
 
 
 class ClassificationTask(Task):
-    def __init__(self, input_path, evaluations_per_pass, class_labels, main_class, **kwargs):
-        super(ClassificationTask, self).__init__(input_path, evaluations_per_pass, **kwargs)
+    def __init__(self, name, input_path, evaluations_per_pass, class_labels, main_class, **kwargs):
+        super(ClassificationTask, self).__init__(name, input_path, evaluations_per_pass, **kwargs)
 
         if not isinstance(class_labels, list):
             raise ValueError("Class labels must be a list of names")

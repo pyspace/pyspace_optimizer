@@ -37,7 +37,7 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
+    def __init__(self, name, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
                  max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, window_size=None, **kwargs):
@@ -70,6 +70,7 @@ class Task(dict):
             window_size = evaluations_per_pass
 
         super(Task, self).__init__({
+            "name": name,
             "passes": passes,
             "evaluations_per_pass": evaluations_per_pass,
             "data_set_path": input_path,
@@ -233,3 +234,7 @@ class Task(dict):
         if "erp_class_label" in node.parameters:
             result["erp_class_label"] = [self["main_class"]]
         return result
+
+    @property
+    def base_result_dir(self):
+        return os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", self["name"])

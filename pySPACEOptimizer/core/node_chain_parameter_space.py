@@ -1,6 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import copy
+import hashlib
 import logging
 import logging.handlers
 import os
@@ -10,6 +11,7 @@ import sys
 import yaml
 
 import pySPACE
+from pySPACE.missions.operations.node_chain import NodeChainOperation
 from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 from pySPACEOptimizer.framework.base_task import Task
 from pySPACEOptimizer.utils import output_diverter
@@ -38,25 +40,8 @@ class NodeChainParameterSpace(object):
         self._nodes = copy.deepcopy(node_list)
         self._input_path = configuration["data_set_path"]
         self.configuration = configuration
-        self._backend = None
-        error = (None, None)
-        # Check if the evaluation should be restarted
-        if configuration.get("restart_evaluation", False) and os.path.isdir(self.base_result_dir):
-            # Delete the old values and start over again
-            try:
-                shutil.rmtree(self.base_result_dir)
-            except OSError:
-                error = ("Error while deleting old data:", sys.exc_info())
-        if not os.path.isdir(self.base_result_dir):
-            os.makedirs(self.base_result_dir)
-
-        # Create a logger for this pipeline
         self._logger = None
         self._error_logger = None
-
-        # Log a possible error
-        if error[0] is not None:
-            self.error_logger.error(msg=error[0], exc_info=error[1])
         self.logger.info("{object!s} is {object!r}".format(object=self))
 
     def __patch_logger(self, name):
@@ -101,7 +86,7 @@ class NodeChainParameterSpace(object):
         Return the pipeline as an operation specification usable for pySPACE execution.
 
         :param parameter_settings: The ranges to let pySPACE select the values for the parameters for.
-        :type parameter_settings: list[dict[str, list[object]]]
+        :type parameter_settings: list[dict[str, object]]
         :return: The pipeline specification as a dictionary
         :rtype: dict[str, str]
         """
@@ -129,8 +114,7 @@ class NodeChainParameterSpace(object):
     @property
     def base_result_dir(self):
         pipeline_hash = str(hash(self)).replace("-", "_")
-        return os.path.join(pySPACE.configuration.get("storage", os.getcwd()),
-                            "operation_results", self.configuration["name"], pipeline_hash)
+        return os.path.join(self.configuration.base_result_dir, pipeline_hash)
 
     @property
     def logger(self):
@@ -145,34 +129,24 @@ class NodeChainParameterSpace(object):
                 pipeline=self))
         return self._error_logger
 
-    def set_backend(self, backend):
-        """
-        Sets the backend to use for the execution of this pipeline.
-
-        :param backend: The backend to use for the execution.
-        :type backend: Backend
-        """
-        self._backend = backend
-
-    def execute(self, parameter_settings=None):
+    def execute(self, backend, parameter_settings=None):
         """
         Executes the pipeline using the given backend.
 
         :param parameter_settings: The ranges to let pySPACE select the values for the parameters for.
-        :type parameter_settings: list[dict[str, list[object]]]
+        :type parameter_settings: list[dict[str, object]]
+        :param backend: The backend to use for the execution.
+        :type backend: Backend
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
-        if self._backend is not None:
-            # noinspection PyBroadException
-            operation = pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
-                                                 base_result_dir=self.base_result_dir)
-            with open(os.devnull, "w") as output:
-                with output_diverter(std_out=output, std_err=sys.stderr):
-                    pySPACE.run_operation(self._backend, operation)
-            return operation.get_output_directory()
-        else:
-            raise AttributeError("No backend has been set. Please first assign the backend using set_backend method")
+        # noinspection PyBroadException
+        operation = pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
+                                             base_result_dir=self.base_result_dir)
+        with open(os.devnull, "w") as output:
+            with output_diverter(std_out=output, std_err=sys.stderr):
+                pySPACE.run_operation(backend, operation)
+        return operation.get_output_directory()
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):
@@ -202,7 +176,6 @@ class NodeChainParameterSpace(object):
 
     def __getstate__(self):
         new_dict = copy.copy(self.__dict__)
-        new_dict["_backend"] = None
         new_dict["_logger"] = None
         new_dict["_error_logger"] = None
         return new_dict

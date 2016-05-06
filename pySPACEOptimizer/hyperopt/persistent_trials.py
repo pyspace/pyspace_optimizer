@@ -62,8 +62,10 @@ def evaluate_trial(domain, trials, trial):
 class PersistentTrials(Trials):
     STORAGE_NAME = "trials.pickle"
 
-    def __init__(self, trials_dir, exp_key=None, refresh=True):
+    def __init__(self, trials_dir, recreate=False, exp_key=None, refresh=True):
         self._trials_file = os.path.join(trials_dir, self.STORAGE_NAME)
+        if recreate and os.path.isfile(self._trials_file):
+            os.unlink(self._trials_file)
         super(PersistentTrials, self).__init__(exp_key=exp_key, refresh=False)
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()

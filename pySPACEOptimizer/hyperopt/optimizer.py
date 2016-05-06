@@ -8,6 +8,7 @@ import warnings
 from Queue import Empty
 from multiprocessing import Manager
 
+import shutil
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
@@ -16,15 +17,16 @@ from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar, ETA
 from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
+from pySPACEOptimizer.hyperopt.hyperopt_node_parameter_space import HyperoptNodeParameterSpace, \
+    HyperoptSinkNodeParameterSpace, HyperoptSourceNodeParameterSpace
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
 def __minimize(spec):
-    pipeline = spec[0]
+    pipeline, backend = spec[0]
     task = pipeline.configuration
-    parameter_ranges = {param: [value] for param, value in spec[1].items()}
-    broken_backend = False
+    parameter_settings = [spec[1]]
     # noinspection PyBroadException
     try:
         # Execute the pipeline
@@ -32,41 +34,36 @@ def __minimize(spec):
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result_path = pipeline.execute(parameter_settings=parameter_ranges)
+                result_path = pipeline.execute(backend=backend, parameter_settings=parameter_settings)
         # Check the result
-        result_file = os.path.join(result_path, "results.csv") if result_path is not None else ""
-        if os.path.isfile(result_file):
-            summary = PerformanceResultSummary.from_csv(result_file)
-            # Calculate the mean of all data sets using the given metric
-            if task["metric"] not in summary:
-                raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
-
-            mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
-
-            loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
-            status = STATUS_OK
-        else:
-            pipeline.logger.debug("No results found. Returning infinite loss and failed state")
-            loss = float("inf"),
-            status = STATUS_FAIL
+        summary = PerformanceResultSummary(dataset_dir=result_path)
+        # Calculate the mean of all data sets using the given metric
+        if task["metric"] not in summary.data:
+            raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
+        mean = numpy.mean(numpy.asarray(summary.data[task["metric"]], dtype=numpy.float))
+        loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
+        status = STATUS_OK
+        # Remove the result dir
+        try:
+            shutil.rmtree(result_path)
+        except OSError as e:
+            pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
     except Exception:
         pipeline.logger.exception("Error minimizing the pipeline:")
-        loss = float("inf"),
+        loss = float("inf")
         status = STATUS_FAIL
-        broken_backend = True
 
     pipeline.logger.debug("Loss: {loss:.3f}".format(loss=loss))
     return {
         "loss": loss,
         "status": status,
-        "broken_backend": broken_backend
     }
 
 
 def optimize_pipeline(task, pipeline, backend, queue):
     # Create the pipeline that should be optimized
     with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-        pipeline.set_backend(pySPACE.create_backend(backend))
+        backend = pySPACE.create_backend(backend)
 
     # Get the suggestion algorithm for the trials
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
@@ -77,7 +74,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
 
     try:
         # Create the trials object loading the persistent trials
-        trials = PersistentTrials(trials_dir=pipeline.base_result_dir)
+        trials = PersistentTrials(trials_dir=pipeline.base_result_dir, recreate=task.get("restart_evaluation", False))
 
         # Do the evaluation
         for pass_ in range(1, passes + 1):
@@ -86,25 +83,13 @@ def optimize_pipeline(task, pipeline, backend, queue):
             progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
                                        maxval=evaluations,
                                        fd=FileLikeLogger(logger=pipeline.logger, log_level=logging.INFO))
-            for trial in trials.minimize(fn=__minimize,
-                                         space=[pipeline, pipeline.pipeline_space],
-                                         algo=suggestion_algorithm,
-                                         evaluations=evaluations,
-                                         pass_=pass_,
+            for trial in trials.minimize(fn=__minimize, space=((pipeline, backend), pipeline.pipeline_space),
+                                         algo=suggestion_algorithm, evaluations=evaluations, pass_=pass_,
                                          rseed=int(time.time())):
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
                 progress_bar.update(progress_bar.currval + 1)
-                # Check the backend consistency
-                if "broken_backend" in trial["result"] and trial["result"]["broken_backend"]:
-                    # An exception occurred, the backend is broken
-                    # create a new one
-                    pipeline.error_logger.debug("Broken backend: Terminating old backend")
-                    backend.terminate()
-                    pipeline.error_logger.debug("Broken backend: Creating a new one")
-                    with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-                        pipeline.set_backend(pySPACE.create_backend(backend))
     except IOError:
         pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
 
@@ -183,11 +168,11 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def _create_node(self, node_name):
         if is_sink_node(node_name):
-            return HyperoptSinkNode(node_name=node_name, task=self._task)
+            return HyperoptSinkNodeParameterSpace(node_name=node_name, task=self._task)
         elif is_source_node(node_name):
-            return HyperoptSourceNode(node_name=node_name, task=self._task)
+            return HyperoptSourceNodeParameterSpace(node_name=node_name, task=self._task)
         else:
-            return HyperoptNode(node_name=node_name, task=self._task)
+            return HyperoptNodeParameterSpace(node_name=node_name, task=self._task)
 
 
 class SerialHyperoptOptimizer(HyperoptOptimizer):

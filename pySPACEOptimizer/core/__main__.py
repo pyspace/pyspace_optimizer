@@ -77,8 +77,7 @@ def main(args=None):
             logger.info("Start optimization..")
             task = task_from_yaml(arguments.task)
             if arguments.result is None:
-                arguments.result = os.path.join(pySPACE.configuration.get("storage", os.getcwd()),
-                                                "operation_results", task["name"])
+                arguments.result = os.path.join(task.base_result_dir, "best.yaml")
             logger.info("Best result will be stored as: %s" % arguments.result)
 
             optimizer = optimizer_factory(task, arguments.backend, arguments.result)

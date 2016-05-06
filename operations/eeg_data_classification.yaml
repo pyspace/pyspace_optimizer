@@ -1,3 +1,4 @@
+name: eeg_data_classification
 type: classification
 input_path: eeg_data_reduced
 optimizer: SerialHyperoptOptimizer
