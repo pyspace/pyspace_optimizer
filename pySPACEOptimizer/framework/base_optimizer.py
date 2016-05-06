@@ -92,9 +92,11 @@ class PySPACEOptimizer(object):
 
     def do_optimization(self):
         self.__performance_graphic.start()
-        self.optimize()
-        self.__performance_graphic.stop()
-        self.__performance_graphic.join()
+        try:
+            return self.optimize()
+        finally:
+            self.__performance_graphic.stop()
+            self.__performance_graphic.join()
 
     @abc.abstractmethod
     def optimize(self):
