@@ -77,7 +77,7 @@ def main(args=None):
             logger.info("Start optimization..")
             task = task_from_yaml(arguments.task)
             if arguments.result is not None:
-                task.base_result_dir = arguments.result
+                task.base_result_dir = os.path.abspath(arguments.result)
 
             result = os.path.join(task.base_result_dir, "best.yaml")
             logger.info("Best result will be stored as: %s" % result)
