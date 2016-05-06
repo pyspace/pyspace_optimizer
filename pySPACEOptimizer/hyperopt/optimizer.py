@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 import logging
 import numpy
-import os
+import shutil
 import time
 import warnings
 from Queue import Empty
 from multiprocessing import Manager
 
-import shutil
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
@@ -23,11 +22,11 @@ from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
+# noinspection PyBroadException
 def __minimize(spec):
     pipeline, backend = spec[0]
     task = pipeline.configuration
     parameter_settings = [spec[1]]
-    # noinspection PyBroadException
     try:
         # Execute the pipeline
         # Log errors from here with special logger
@@ -36,18 +35,23 @@ def __minimize(spec):
                 warnings.simplefilter("ignore")
                 result_path = pipeline.execute(backend=backend, parameter_settings=parameter_settings)
         # Check the result
-        summary = PerformanceResultSummary(dataset_dir=result_path)
-        # Calculate the mean of all data sets using the given metric
-        if task["metric"] not in summary.data:
-            raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
-        mean = numpy.mean(numpy.asarray(summary.data[task["metric"]], dtype=numpy.float))
-        loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
         status = STATUS_OK
-        # Remove the result dir
         try:
-            shutil.rmtree(result_path)
-        except OSError as e:
-            pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
+            summary = PerformanceResultSummary(dataset_dir=result_path)
+            # Calculate the mean of all data sets using the given metric
+            if task["metric"] not in summary.data:
+                raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
+            mean = numpy.mean(numpy.asarray(summary.data[task["metric"]], dtype=numpy.float))
+            loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
+            # Remove the result dir
+            try:
+                shutil.rmtree(result_path)
+            except OSError as e:
+                pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
+        except Exception, e:
+            pipeline.logger.debug("Exception: {error}".format(error=e.message))
+            pipeline.logger.info("No results found, returning infinite loss.")
+            loss = float("inf")
     except Exception:
         pipeline.logger.exception("Error minimizing the pipeline:")
         loss = float("inf")
