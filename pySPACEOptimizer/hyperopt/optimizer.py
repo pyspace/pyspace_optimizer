@@ -1,5 +1,6 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+import os
 import logging
 import numpy
 import shutil
@@ -37,22 +38,23 @@ def __minimize(spec):
                 result_path = pipeline.execute(backend=backend, parameter_settings=parameter_settings)
         # Check the result
         status = STATUS_OK
-        try:
-            summary = PerformanceResultSummary(dataset_dir=result_path)
+        result_file = os.path.join(result_path, "results.csv")
+        if os.path.isfile(result_file):
+            summary = PerformanceResultSummary.from_csv(result_file)
             # Calculate the mean of all data sets using the given metric
-            if task["metric"] not in summary.data:
+            if task["metric"] not in summary:
                 raise ValueError("Metric '{metric}' not found in result data set".format(metric=task["metric"]))
-            mean = numpy.mean(numpy.asarray(summary.data[task["metric"]], dtype=numpy.float))
+            mean = numpy.mean(numpy.asarray(summary[task["metric"]], dtype=numpy.float))
             loss = -1 * mean if "is_performance_metric" in task and task["is_performance_metric"] else mean
-            # Remove the result dir
-            try:
-                shutil.rmtree(result_path)
-            except OSError as e:
-                pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
-        except Exception, e:
-            pipeline.logger.debug("Exception: {error}".format(error=e.message))
-            pipeline.logger.info("No results found, returning infinite loss.")
+        else:
+            pipeline.logger.info("No results found. Returning inf")
             loss = float("inf")
+            status = STATUS_FAIL
+        # Remove the result dir
+        try:
+            shutil.rmtree(result_path)
+        except OSError as e:
+            pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
     except Exception:
         pipeline.logger.exception("Error minimizing the pipeline:")
         loss = float("inf")
