@@ -8,6 +8,7 @@ import warnings
 from Queue import Empty
 from multiprocessing import Manager
 
+import sys
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
@@ -139,8 +140,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
         passes = self._task["passes"]
         # Create a progress bar
         progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar(), ' ', ETA()],
-                                   maxval=evaluations * passes * len(results),
-                                   fd=FileLikeLogger(logger=self._logger, log_level=logging.INFO))
+                                   maxval=evaluations * passes * len(results), fd=sys.stdout)
         progress_bar.update(0)
         while True:
             if self._queue.empty() and results is not None and all([result.ready() for result in results]):
