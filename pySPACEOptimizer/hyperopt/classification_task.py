@@ -1,4 +1,4 @@
-from pySPACEOptimizer.tasks.base_task import Task, is_node_type
+from pySPACEOptimizer.framework.base_task import Task, is_node_type
 
 
 def is_classification_task_node(node_name):

@@ -1,8 +1,7 @@
 import os
 from setuptools import setup
 
-from pySPACEOptimizer.optimizer import OPTIMIZER_ENTRY_POINT
-from pySPACEOptimizer.tasks import TASK_ENTRY_POINT
+from pySPACEOptimizer.framework import OPTIMIZER_ENTRY_POINT, TASK_ENTRY_POINT
 
 directory_name = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(directory_name, "README.md"), "rb") as readme:
@@ -22,15 +21,15 @@ setup(
     install_requires=["numpy", "hyperopt", "matplotlib", 'scipy'],
     entry_points={
         "console_scripts": [
-            "pySPACEOptimizer = pySPACEOptimizer.__main__:main"
+            "pySPACEOptimizer = pySPACEOptimizer.core.__main__:main"
         ],
         OPTIMIZER_ENTRY_POINT: [
-            "HyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:HyperoptOptimizer",
-            "SerialHyperoptOptimizer = pySPACEOptimizer.optimizer.hyperopt_optimizer.optimizer:SerialHyperoptOptimizer",
+            "HyperoptOptimizer = pySPACEOptimizer.hyperopt.optimizer:HyperoptOptimizer",
+            "SerialHyperoptOptimizer = pySPACEOptimizer.hyperopt.optimizer:SerialHyperoptOptimizer",
         ],
         TASK_ENTRY_POINT: [
-            "classification = pySPACEOptimizer.tasks.classification:ClassificationTask",
-            "classificationWithoutScikit = pySPACEOptimizer.tasks.classification:ClassificationTaskWithoutScikit"
+            "classification = pySPACEOptimizer.hyperopt.classification_task:ClassificationTask",
+            "classificationWithoutScikit = pySPACEOptimizer.hyperopt.classification_task:ClassificationTaskWithoutScikit"
         ]
     },
     classifiers=["Development Status :: 2 - Pre-Alpha",

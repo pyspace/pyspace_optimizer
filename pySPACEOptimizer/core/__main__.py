@@ -8,8 +8,7 @@ import yaml
 from argparse import ArgumentParser, FileType
 
 import pySPACE
-from pySPACEOptimizer.optimizer import optimizer_factory, list_optimizers
-from pySPACEOptimizer.tasks import task_from_yaml, list_tasks
+from pySPACEOptimizer.framework import optimizer_factory, list_optimizers, task_from_yaml, list_tasks
 
 
 HOME = os.path.expanduser("~")
@@ -78,7 +77,8 @@ def main(args=None):
             logger.info("Start optimization..")
             task = task_from_yaml(arguments.task)
             if arguments.result is None:
-                arguments.result = "%s/pySPACEcenter/specs/operations/%s_best.yaml" % (HOME, task["data_set_path"])
+                arguments.result = os.path.join(pySPACE.configuration.get("storage", os.getcwd()),
+                                                "operation_results", task["name"])
             logger.info("Best result will be stored as: %s" % arguments.result)
 
             optimizer = optimizer_factory(task, arguments.backend, arguments.result)

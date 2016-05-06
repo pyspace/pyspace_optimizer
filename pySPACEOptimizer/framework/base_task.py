@@ -11,7 +11,8 @@ import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
 
-__all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
+
+__all__ = ["Task", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
 
 
 def get_node_type(node_name):
@@ -219,7 +220,7 @@ class Task(dict):
                 return 0
 
     def default_parameters(self, node):
-        # :type node: PipelineNode
+        # :type node: NodeParameterSpace
         definitions = [parameter_range for parameter_range in self["parameter_ranges"]
                        if parameter_range["node"] == node.name]
         if definitions:

@@ -3,9 +3,9 @@
 import abc
 import logging
 
-from pySPACEOptimizer.optimizer.performance_graphic import PerformanceGraphic
-from pySPACEOptimizer.pipeline_generator import PipelineGenerator
-from pySPACEOptimizer.pipelines import Pipeline
+from pySPACEOptimizer.core.node_chain_parameter_space import NodeChainParameterSpace
+from pySPACEOptimizer.core.nodelist_generator import NodeListGenerator
+from pySPACEOptimizer.core.performance_graphic import PerformanceGraphic
 
 __all__ = ["PySPACEOptimizer", "NoPipelineFound"]
 
@@ -53,26 +53,23 @@ class PySPACEOptimizer(object):
     def _performance_graphic_add(self, pipeline, id_, loss):
         self.__performance_graphic.add(pipeline, id_, loss)
 
-    def _performance_graphic_update(self):
-        self.__performance_graphic.update()
-
     def _store_best_result(self, best_pipeline, best_parameters):
         """
-        :type best_pipeline: Pipeline
+        :type best_pipeline: NodeChainParameterSpace
         :type best_parameters: dict[str, list[object]]
         """
-        parameter_ranges = {param: [value] for param, value in best_parameters.iteritems()}
-        operation_spec = best_pipeline.operation_spec(parameter_ranges=parameter_ranges)
+        parameter_settings = [{param: [value] for param, value in best_parameters.iteritems()}]
+        operation_spec = best_pipeline.operation_spec(parameter_settings=parameter_settings)
         with open(self._best_result_file, "wb") as best_result_file:
             # Write the result to the object
             best_result_file.write(operation_spec["base_file"])
 
-    def _generate_pipelines(self):
+    def _generate_node_chain_parameter_spaces(self):
         if not self.__pipelines:
-            for node_chain in PipelineGenerator(self._task):
-                self._logger.debug("Testing Pipeline: %s", node_chain)
-                pipeline = Pipeline(configuration=self._task,
-                                    node_chain=[self._create_node(node) for node in node_chain])
+            for node_list in NodeListGenerator(self._task):
+                self._logger.debug("Testing NodeChainParameterSpace: %s", node_list)
+                pipeline = NodeChainParameterSpace(configuration=self._task,
+                                                   node_list=[self._create_node(node) for node in node_list])
                 self.__pipelines.append(pipeline)
                 yield pipeline
         else:
@@ -81,6 +78,15 @@ class PySPACEOptimizer(object):
 
     @abc.abstractmethod
     def _create_node(self, node_name):
+        """
+        Instantiate a concrete NodeParameterSpace instance for the node with the given `node_name`.
+        This has to be implemented by a subclass to instantiate it's concrete NodeParameterSpace subclass.
+
+        :param node_name: The name of the node to instantiate
+        :type node_name: str
+        :return: A NodeParameterSpace instance for the given node name
+        :rtype: R <= NodeParameterSpace
+        """
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -90,7 +96,7 @@ class PySPACEOptimizer(object):
         This method should construct all pipelines available and optimize them.
 
         :return: The best parameters found for this pipeline
-        :rtype: tuple[float, Pipeline, dict[str, object]]
+        :rtype: tuple[float, NodeChainParameterSpace, dict[str, object]]
         """
         raise NotImplementedError()
 

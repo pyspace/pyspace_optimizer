@@ -13,11 +13,10 @@ from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 import pySPACE
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar, ETA
-from pySPACEOptimizer.optimizer.base_optimizer import PySPACEOptimizer
-from pySPACEOptimizer.optimizer.hyperopt_optimizer.persistent_trials import PersistentTrials
-from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
-from pySPACEOptimizer.pipelines.nodes.hyperopt_node import HyperoptNode, HyperoptSinkNode, HyperoptSourceNode
-from pySPACEOptimizer.tasks.base_task import is_sink_node, is_source_node
+from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
+from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
+from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
+from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
@@ -33,7 +32,7 @@ def __minimize(spec):
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result_path = pipeline.execute(parameter_ranges=parameter_ranges)
+                result_path = pipeline.execute(parameter_settings=parameter_ranges)
         # Check the result
         result_file = os.path.join(result_path, "results.csv") if result_path is not None else ""
         if os.path.isfile(result_file):
@@ -107,7 +106,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                     with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
                         pipeline.set_backend(pySPACE.create_backend(backend))
     except IOError:
-        pipeline.error_logger.exception("Error optimizing Pipeline:")
+        pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -122,7 +121,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
         try:
             results = []
             self.logger.debug("Generating pipelines")
-            for node_chain in self._generate_pipelines():
+            for node_chain in self._generate_node_chain_parameter_spaces():
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
                                                 args=(self._task, node_chain, self._backend, self._queue)))

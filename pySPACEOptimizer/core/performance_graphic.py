@@ -50,7 +50,8 @@ class PerformanceGraphic(threading.Thread):
                                 self.__number_of_points[pipeline] -= 1
                             self.__tids[pipeline].append(i)
                             if self.__number_of_points[pipeline] > 0:
-                                self.__averages[pipeline].append(self.__means[pipeline] / self.__number_of_points[pipeline])
+                                self.__averages[pipeline].append(self.__means[pipeline] /
+                                                                 self.__number_of_points[pipeline])
                             else:
                                 # No valid points inside the window,
                                 # average must be infinitely high
@@ -60,7 +61,7 @@ class PerformanceGraphic(threading.Thread):
                             self.__bests[i] = current_loss
                         self.__current_indexes[pipeline] += 1
                 # Plot the results
-                pyplot.title("Pipeline performance during optimization")
+                pyplot.title("NodeChainParameterSpace performance during optimization")
                 pyplot.plot(self.__tids[pipeline], self.__averages[pipeline], label="%s" % pipeline)
 
         # and calculate the list of bests
@@ -83,7 +84,6 @@ class PerformanceGraphic(threading.Thread):
         # Clear the figure for next plot
         pyplot.clf()
         pyplot.close(figure)
-
 
     def run(self):
         while not self.__stopped.isSet():

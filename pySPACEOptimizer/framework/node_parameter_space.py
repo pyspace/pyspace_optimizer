@@ -6,7 +6,7 @@ from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, PARAMETER_TYP
     QNormalParameter, BooleanParameter
 
 
-class PipelineNode(object):
+class NodeParameterSpace(object):
     def __init__(self, node_name, task):
         """
         Creates a new node for a pipeline using the given pySPACE node name.
@@ -16,7 +16,7 @@ class PipelineNode(object):
         :param task: The task to execute with the pipeline this node is used in
         :type task: T <= Task
         :return: A new pipeline element wrapping the given pySPACE node.
-        :rtype: PipelineNode
+        :rtype: NodeParameterSpace
         """
         self.class_ = nodes.DEFAULT_NODE_MAPPING[node_name]
         self.name = node_name
@@ -167,10 +167,10 @@ class PipelineNode(object):
         return hash(self.name)
 
 
-class PipelineSinkNode(PipelineNode):
+class SinkNodeParameterSpace(NodeParameterSpace):
 
     def __init__(self, node_name, task):
-        super(PipelineSinkNode, self).__init__(node_name, task=task)
+        super(SinkNodeParameterSpace, self).__init__(node_name, task=task)
         self._main_class = task["main_class"]
         self._class_labels = task["class_labels"]
         self._property = "ir_class"
@@ -180,7 +180,7 @@ class PipelineSinkNode(PipelineNode):
         return [parameter.parameter_name for parameter in self._values]
 
     def as_dictionary(self):
-        result = super(PipelineSinkNode, self).as_dictionary()
+        result = super(SinkNodeParameterSpace, self).as_dictionary()
         if "parameters" not in result:
             result["parameters"] = {}
         result["parameters"]["ir_class"] = self._main_class
@@ -188,7 +188,7 @@ class PipelineSinkNode(PipelineNode):
         return result
 
 
-class PipelineSourceNode(PipelineNode):
+class SourceNodeParameterSpace(NodeParameterSpace):
     @property
     def optimization_parameters(self):
         return [parameter.parameter_name for parameter in self._values]

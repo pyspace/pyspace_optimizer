@@ -1,7 +1,7 @@
 import yaml
-
 from pySPACEOptimizer.pipelines import Pipeline, PipelineNode
-from pySPACEOptimizer.tasks.base_task import Task
+
+from pySPACEOptimizer.tasks import Task
 from pyspace_test import PySPACETestCase
 
 

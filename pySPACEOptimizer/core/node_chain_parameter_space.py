@@ -10,8 +10,8 @@ import sys
 import yaml
 
 import pySPACE
-from pySPACEOptimizer.pipelines.nodes import PipelineNode
-from pySPACEOptimizer.tasks.base_task import Task
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
+from pySPACEOptimizer.framework.base_task import Task
 from pySPACEOptimizer.utils import output_diverter
 
 try:
@@ -20,22 +20,22 @@ except ImportError:
     from yaml import SafeDumper as Dumper
 
 
-class Pipeline(object):
+class NodeChainParameterSpace(object):
 
-    def __init__(self, configuration, node_chain):
+    def __init__(self, configuration, node_list):
         """
         Creates a new node with the given `name` and `data_set_path`.
         The pipeline uses the given nodes for processing.
 
         :param configuration: The configuration to use for this Pipeline
         :type configuration: Task
-        :param node_chain: A list of node names to create the pipeline with
-        :type node_chain: list[PipelineNode]
+        :param node_list: A list of node names to create the pipeline with
+        :type node_list: list[NodeParameterSpace]
 
         :return: A new PySPACEPipeline with the given name, nodes and data set path
-        :rtype: Pipeline
+        :rtype: NodeChainParameterSpace
         """
-        self._nodes = copy.deepcopy(node_chain)
+        self._nodes = copy.deepcopy(node_list)
         self._input_path = configuration["data_set_path"]
         self.configuration = configuration
         self._backend = None
@@ -96,24 +96,24 @@ class Pipeline(object):
             space.update(node.parameter_space())
         return space
 
-    def operation_spec(self, parameter_ranges=None):
+    def operation_spec(self, parameter_settings=None):
         """
         Return the pipeline as an operation specification usable for pySPACE execution.
 
-        :param parameter_ranges: The ranges to let pySPACE select the values for the parameters for.
-        :type parameter_ranges: dict[str, list[object]]
+        :param parameter_settings: The ranges to let pySPACE select the values for the parameters for.
+        :type parameter_settings: list[dict[str, list[object]]]
         :return: The pipeline specification as a dictionary
         :rtype: dict[str, str]
         """
-        if parameter_ranges is None:
-            parameter_ranges = {}
+        if parameter_settings is None:
+            parameter_settings = []
 
         node_chain = [node.as_dictionary() for node in self._nodes]
         operation_spec = {
             "type": "node_chain",
             "input_path": self._input_path,
             "node_chain": node_chain,
-            "parameter_ranges": parameter_ranges
+            "parameter_settings": parameter_settings
         }
         # Due to bad pySPACE YAML-Parsing, we need to modify the output of the yaml dumper for correct format
         dump = yaml.dump(operation_spec, Dumper=Dumper, default_flow_style=False, indent=4)
@@ -129,7 +129,8 @@ class Pipeline(object):
     @property
     def base_result_dir(self):
         pipeline_hash = str(hash(self)).replace("-", "_")
-        return os.path.join(os.getcwd(), "operation_results", pipeline_hash)
+        return os.path.join(pySPACE.configuration.get("storage", os.getcwd()),
+                            "operation_results", self.configuration["name"], pipeline_hash)
 
     @property
     def logger(self):
@@ -140,7 +141,8 @@ class Pipeline(object):
     @property
     def error_logger(self):
         if self._error_logger is None:
-            self._error_logger = self.__patch_logger("pySPACEOptimizer.pipeline_errors.{pipeline}".format(pipeline=self))
+            self._error_logger = self.__patch_logger("pySPACEOptimizer.pipeline_errors.{pipeline}".format(
+                pipeline=self))
         return self._error_logger
 
     def set_backend(self, backend):
@@ -152,18 +154,18 @@ class Pipeline(object):
         """
         self._backend = backend
 
-    def execute(self, parameter_ranges=None):
+    def execute(self, parameter_settings=None):
         """
         Executes the pipeline using the given backend.
 
-        :param parameter_ranges: The ranges to let pySPACE select the values for the parameters for.
-        :type parameter_ranges: dict[str, list[object]]
+        :param parameter_settings: The ranges to let pySPACE select the values for the parameters for.
+        :type parameter_settings: list[dict[str, list[object]]]
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
         if self._backend is not None:
             # noinspection PyBroadException
-            operation = pySPACE.create_operation(self.operation_spec(parameter_ranges=parameter_ranges),
+            operation = pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
                                                  base_result_dir=self.base_result_dir)
             with open(os.devnull, "w") as output:
                 with output_diverter(std_out=output, std_err=sys.stderr):
@@ -196,7 +198,7 @@ class Pipeline(object):
         return r
 
     def __str__(self):
-        return "Pipeline<{hash!s:>20s}>".format(hash=hash(self))
+        return "NodeChainParameterSpace<{hash!s:>20s}>".format(hash=hash(self))
 
     def __getstate__(self):
         new_dict = copy.copy(self.__dict__)

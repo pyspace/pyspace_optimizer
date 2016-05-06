@@ -4,7 +4,7 @@ import os
 from hyperopt import Trials, Domain, base, JOB_STATE_DONE
 
 from pySPACE.missions.nodes.decorators import ChoiceParameter
-from pySPACEOptimizer.pipelines import PipelineNode
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 
 try:
     # noinspection PyCompatibility
@@ -30,7 +30,7 @@ class Trial(object):
         new_pipeline_space = {}
         new_parameters = copy.copy(parameters)
         for node in pipeline.nodes:
-            new_pipeline_space.update(PipelineNode.parameter_space(node))
+            new_pipeline_space.update(NodeParameterSpace.parameter_space(node))
 
         for key, value in parameters.items():
             if isinstance(new_pipeline_space[key], ChoiceParameter):

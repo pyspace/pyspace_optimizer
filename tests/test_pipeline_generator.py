@@ -1,5 +1,5 @@
-from pySPACEOptimizer.pipeline_generator import PipelineGenerator
-from pySPACEOptimizer.tasks.base_task import Task
+from pySPACEOptimizer.core.nodelist_generator import NodeListGenerator
+from pySPACEOptimizer.tasks import Task
 from pyspace_test import PySPACETestCase
 
 
@@ -12,7 +12,7 @@ class PipelineGeneratorTests(PySPACETestCase):
                           main_class="Target",
                           max_pipeline_length=3,
                           evaluations_per_pass=1)
-        generator = PipelineGenerator(experiment)
+        generator = NodeListGenerator(experiment)
         for pipeline in generator:
             self.assertLessEqual(len(pipeline), experiment["max_pipeline_length"])
 
@@ -28,7 +28,7 @@ class PipelineGeneratorTests(PySPACETestCase):
         check = task["whitelist"]
         check.add(task["source_node"])
         check.add(task["sink_node"])
-        for pipeline in PipelineGenerator(task):
+        for pipeline in NodeListGenerator(task):
             self.assertTrue(set(pipeline).issubset(check))
 
     def test_blacklist(self):
@@ -40,7 +40,7 @@ class PipelineGeneratorTests(PySPACETestCase):
                     sink_node="PerformanceSinkNode",
                     blacklist=["SorSvmNode", "GaussianFeatureNormalizationNode"],
                     evaluations_per_pass=1)
-        for pipeline in PipelineGenerator(task):
+        for pipeline in NodeListGenerator(task):
             self.assertFalse(any([node in pipeline for node in task["blacklist"]]))
 
     def test_forced_nodes(self):
@@ -50,5 +50,5 @@ class PipelineGeneratorTests(PySPACETestCase):
                     main_class="Target",
                     forced_nodes=["SorSvmNode"],
                     evaluations_per_pass=1)
-        for pipeline in PipelineGenerator(task):
+        for pipeline in NodeListGenerator(task):
             self.assertTrue(all([node in pipeline for node in task["forced_nodes"]]))
