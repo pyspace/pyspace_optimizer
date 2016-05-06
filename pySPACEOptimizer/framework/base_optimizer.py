@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import abc
 import logging
+import os
 
 from pySPACEOptimizer.core.node_chain_parameter_space import NodeChainParameterSpace
 from pySPACEOptimizer.core.nodelist_generator import NodeListGenerator
@@ -43,7 +44,8 @@ class PySPACEOptimizer(object):
             self._best_result_file = "%s_best.yaml" % task["data_set_path"]
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
         self.__pipelines = []
-        self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"])
+        self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"],
+                                                        file_path=os.path.join(task.base_result_dir, "performance.pdf"))
 
     @property
     def logger(self):
