@@ -1,25 +1,26 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 import copy
-import hashlib
 import logging
 import logging.handlers
 import os
-import shutil
 import sys
 
 import yaml
 
 import pySPACE
-from pySPACE.missions.operations.node_chain import NodeChainOperation
-from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 from pySPACEOptimizer.framework.base_task import Task
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 from pySPACEOptimizer.utils import output_diverter
 
 try:
     from yaml import CSafeDumper as Dumper
 except ImportError:
     from yaml import SafeDumper as Dumper
+
+
+FORMATTER = logging.Formatter(fmt="[%(asctime)s.%(msecs)03d:%(levelname)10s][%(name)s] %(message)s",
+                              datefmt="%d.%m.%Y %H:%M:%S")
 
 
 class NodeChainParameterSpace(object):
@@ -44,21 +45,15 @@ class NodeChainParameterSpace(object):
         self._error_logger = None
         self.logger.info("{object!s} is {object!r}".format(object=self))
 
-    def __patch_logger(self, name):
+    def __patch_logger(self, name, file_name, level):
         logger = logging.getLogger(name)
-        # And change the handler to have a single file for each pipeline
-        handlers = copy.copy(logger.handlers or logger.parent.handlers)
-        for handler in handlers:
-            if isinstance(handler, logging.FileHandler):
-                # Replace with a new handler that writes to the correct path
-                file_name = handler.baseFilename.rsplit(os.path.sep, 1)[1]
-                file_path = os.path.join(self.base_result_dir, file_name)
-                new_handler = logging.handlers.RotatingFileHandler(file_path, mode=handler.mode)
-                new_handler.setLevel(handler.level)
-                new_handler.setFormatter(handler.formatter)
-                new_handler.set_name(handler.name)
-                # add the new handler
-                logger.addHandler(new_handler)
+        file_path = os.path.join(self.base_result_dir, file_name)
+        new_handler = logging.FileHandler(file_path)
+        new_handler.setLevel(level)
+        new_handler.setFormatter(FORMATTER)
+        new_handler.set_name(name)
+        # add the new handler
+        logger.addHandler(new_handler)
         return logger
 
     @property
@@ -119,14 +114,19 @@ class NodeChainParameterSpace(object):
     @property
     def logger(self):
         if self._logger is None:
-            self._logger = self.__patch_logger("pySPACEOptimizer.pipeline.{pipeline}".format(pipeline=self))
+            self._logger = self.__patch_logger(
+                name="pySPACEOptimizer.pipeline.{pipeline}".format(pipeline=self),
+            file_name="pipeline_output.pylog",
+            level=logging.INFO)
         return self._logger
 
     @property
     def error_logger(self):
         if self._error_logger is None:
-            self._error_logger = self.__patch_logger("pySPACEOptimizer.pipeline_errors.{pipeline}".format(
-                pipeline=self))
+            self._error_logger = self.__patch_logger(
+                name="pySPACEOptimizer.pipeline_errors.{pipeline}".format(pipeline=self),
+            file_name="pipeline_errors.pylog",
+            level=logging.WARNING)
         return self._error_logger
 
     def execute(self, backend, parameter_settings=None):
