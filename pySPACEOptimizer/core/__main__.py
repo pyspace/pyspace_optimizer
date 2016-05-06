@@ -23,7 +23,7 @@ def create_parser():
     parser.add_argument("-t", "--task", type=FileType("rb"),
                         help="The path to a task description in YAML format", required=True)
     parser.add_argument("-r", "--result", type=str, default=None,
-                        help="The name of the file to store the result into")
+                        help="The path to store the results (logging, performance, trials, ...) to")
     parser.add_argument("-b", "--backend", type=str, default="serial",
                         help='The backend to use for testing in pySPACE. '
                              'Possible values: "serial", "mcore", "mpi", "loadl". Default: "serial"')
@@ -76,11 +76,13 @@ def main(args=None):
         try:
             logger.info("Start optimization..")
             task = task_from_yaml(arguments.task)
-            if arguments.result is None:
-                arguments.result = os.path.join(task.base_result_dir, "best.yaml")
-            logger.info("Best result will be stored as: %s" % arguments.result)
+            if arguments.result is not None:
+                task.base_result_dir = arguments.result
 
-            optimizer = optimizer_factory(task, arguments.backend, arguments.result)
+            result = os.path.join(task.base_result_dir, "best.yaml")
+            logger.info("Best result will be stored as: %s" % result)
+
+            optimizer = optimizer_factory(task, arguments.backend, result)
             if optimizer is None:
                 raise Exception("Optimizer %s not found!" % task["optimizer"])
             best_result = optimizer.do_optimization()

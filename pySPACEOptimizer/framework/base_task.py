@@ -85,7 +85,8 @@ class Task(dict):
             "node_weights": dict(node_weights) if node_weights is not None else dict(),
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
-            "window_size": window_size
+            "window_size": window_size,
+            "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name)
         })
         super(Task, self).update(kwargs)
 
@@ -241,4 +242,8 @@ class Task(dict):
 
     @property
     def base_result_dir(self):
-        return os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", self["name"])
+        return self["result_dir"]
+
+    @base_result_dir.setter
+    def base_result_dir(self, result_dir):
+        self["result_dir"] = result_dir
