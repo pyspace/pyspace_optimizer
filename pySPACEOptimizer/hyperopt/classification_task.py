@@ -1,4 +1,4 @@
-from pySPACEOptimizer.tasks.base_task import Task, is_node_type
+from pySPACEOptimizer.framework.base_task import Task, is_node_type
 
 
 def is_classification_task_node(node_name):
@@ -16,7 +16,7 @@ class ClassificationTask(Task):
         if main_class not in class_labels:
             raise ValueError("The main class is not defined as a class label")
         self.update({"class_labels": tuple(class_labels),
-                     "main_class": main_class,})
+                     "main_class": main_class})
 
     @property
     def required_node_types(self):

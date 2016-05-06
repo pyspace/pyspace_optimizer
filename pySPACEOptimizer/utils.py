@@ -2,9 +2,9 @@ import logging
 import sys
 
 
-class OutputRedirecter(object):
+class output_diverter(object):
 
-    def __init__(self, std_out, std_err):
+    def __init__(self, std_out=None, std_err=None):
         self.__stdout = std_out
         self.__stderr = std_err
         self.__old_stdout = None
@@ -13,13 +13,15 @@ class OutputRedirecter(object):
     def __enter__(self):
         self.__old_stdout = sys.stdout
         self.__old_stderr = sys.stderr
-        sys.stdout = self.__stdout
-        sys.stderr = self.__stderr
+        if self.__stdout is not None:
+            sys.stdout = self.__stdout
+        if self.__stderr is not None:
+            sys.stderr = self.__stderr
 
     # noinspection PyUnusedLocal
     def __exit__(self, *args, **kwargs):
         sys.stdout = self.__old_stdout
-        sys.sterr = self.__old_stderr
+        sys.stderr = self.__old_stderr
 
 
 class FileLikeLogger(object):
@@ -38,7 +40,7 @@ class FileLikeLogger(object):
             self.__logger.log(level=self.__log_level, msg=message)
 
 
-class OutputLogger(object):
+class output_logger(object):
 
     def __init__(self, std_out_logger, std_err_logger, std_out_log_level=logging.INFO, std_err_log_level=logging.ERROR):
         self._std_out_logger = std_out_logger

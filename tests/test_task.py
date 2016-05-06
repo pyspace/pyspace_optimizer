@@ -1,9 +1,10 @@
 import unittest
 
 from pySPACEOptimizer.pipelines import PipelineNode
+
+from pySPACEOptimizer.tasks import ClassificationTask
+from pySPACEOptimizer.tasks import Task, is_source_node, is_sink_node
 from pySPACEOptimizer.tasks import task_from_yaml
-from pySPACEOptimizer.tasks.base_task import Task, is_source_node, is_sink_node
-from pySPACEOptimizer.tasks.classification import ClassificationTask
 from pyspace_test import PySPACETestCase
 
 MINIMAL_CONFIG = """
@@ -36,7 +37,7 @@ parameter_ranges:
 """
 
 
-class TaskestCase(PySPACETestCase):
+class TaskTestCase(PySPACETestCase):
 
     def test_weighted_nodes_by_input_type(self):
         node_name = "SorSvmNode"

@@ -1,7 +1,5 @@
-import signal
 import threading
 from multiprocessing.pool import Pool, Process, RUN, debug, CLOSE, TERMINATE
-from multiprocessing.util import Finalize
 
 
 class NoDaemonProcess(Process):
@@ -28,9 +26,10 @@ class OptimizerPool(Pool):
             initargs = ()
         super(OptimizerPool, self).__init__(processes=processes, initializer=initializer, initargs=initargs,
                                             maxtasksperchild=1)
-#        signal.signal(signal.SIGTERM, self._handle_signal)
-#        signal.signal(signal.SIGINT, self._handle_signal)
-#        signal.signal(signal.SIGQUIT, self._handle_signal)
+
+    #        signal.signal(signal.SIGTERM, self._handle_signal)
+    #        signal.signal(signal.SIGINT, self._handle_signal)
+    #        signal.signal(signal.SIGQUIT, self._handle_signal)
 
     def apply(self, func, args=None, kwds=None):
         assert self._state == RUN
@@ -60,7 +59,7 @@ class OptimizerPool(Pool):
             p.join(timeout=self.DEFAULT_TIMEOUT)
 
     @classmethod
-    def _terminate_pool(cls, taskqueue, inqueue, outqueue, pool,
+    def _terminate_pool(cls, task_queue, in_queue, out_queue, pool,
                         worker_handler, task_handler, result_handler, cache):
         # this is guaranteed to only be called once
         debug('finalizing pool')
@@ -69,7 +68,7 @@ class OptimizerPool(Pool):
         task_handler._state = TERMINATE
 
         debug('helping task handler/workers to finish')
-        cls._help_stuff_finish(inqueue, task_handler, len(pool))
+        cls._help_stuff_finish(in_queue, task_handler, len(pool))
 
         # We must wait for the worker handler to exit before terminating
         # workers because we don't want workers to be restarted behind our back.
@@ -92,7 +91,7 @@ class OptimizerPool(Pool):
         assert result_handler.is_alive() or len(cache) == 0
 
         result_handler._state = TERMINATE
-        outqueue.put(None)                  # sentinel
+        out_queue.put(None)  # sentinel
 
         debug('joining result handler')
         if threading.current_thread() is not result_handler:
@@ -106,60 +105,6 @@ class OptimizerPool(Pool):
                     debug('cleaning up worker %d' % p.pid)
                     p.join()
 
-    def _handle_signal(self, signal_, frame):
+    def _handle_signal(self, *_):
         self.terminate()
         self.join()
-
-
-if __name__ == "__main__":
-    import time
-
-    done = False
-    def test():
-        import signal, time
-        def handler(signal_, frame):
-            global done
-            done = True
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
-        signal.signal(signal.SIGQUIT, handler)
-        while not done:
-            print "Sleeping.."
-            time.sleep(1)
-
-    def test2():
-        pool2 = OptimizerPool()
-        print "test2: applying test"
-        try:
-            pool2.apply(test)
-        except Exception, e:
-            print "test2 got exception: %s" % e.message
-            raise e
-        finally:
-            print "test2: closing pool"
-            pool2.close()
-            print "test2: joining pool"
-            pool2.join()
-            print "FINISHED test2"
-
-    def test3():
-        pool3 = OptimizerPool()
-        print "test3: applying test2"
-        try:
-            pool3.apply(test2)
-        except Exception, e:
-            print "test3 got exception: %s" % e.message
-            raise e
-        finally:
-            print "test3: closing pool"
-            pool3.close()
-            print "test3: joining pool"
-            pool3.join()
-            print "FINISHED test3"
-
-    pool = OptimizerPool()
-    pool.apply_async(test3)
-    time.sleep(2)
-    pool.terminate()
-    pool.join()
-    print "FINISHED!"

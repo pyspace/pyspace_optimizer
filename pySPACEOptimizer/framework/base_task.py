@@ -3,15 +3,16 @@
 from __future__ import division
 
 import glob
-import os
 import logging
+import os
 import pprint
 
 import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
 
-__all__ = ["Experiment", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
+
+__all__ = ["Task", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
 
 
 def get_node_type(node_name):
@@ -39,7 +40,7 @@ class Task(dict):
     def __init__(self, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
                  max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
-                 parameter_ranges=None, **kwargs):
+                 parameter_ranges=None, window_size=None, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -65,6 +66,9 @@ class Task(dict):
         if not is_sink_node(sink_node):
             raise ValueError("The node '{node}' is not a sink node".format(node=sink_node))
 
+        if window_size is None:
+            window_size = evaluations_per_pass
+
         super(Task, self).__init__({
             "passes": passes,
             "evaluations_per_pass": evaluations_per_pass,
@@ -80,6 +84,7 @@ class Task(dict):
             "node_weights": dict(node_weights) if node_weights is not None else dict(),
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
+            "window_size": window_size
         })
         super(Task, self).update(kwargs)
 
@@ -174,7 +179,7 @@ class Task(dict):
     def data_set_type(self):
         # Determinate the type of the data set
         if not os.path.isabs(self["data_set_path"]):
-            # we need to have an absolut path here, assume it's relative to the storage loation
+            # we need to have an absolute path here, assume it's relative to the storage location
             data_set_dir = os.path.join(pySPACE.configuration.storage, self["data_set_path"])
         else:
             data_set_dir = self["data_set_path"]
@@ -215,7 +220,7 @@ class Task(dict):
                 return 0
 
     def default_parameters(self, node):
-        # :type node: PipelineNode
+        # :type node: NodeParameterSpace
         definitions = [parameter_range for parameter_range in self["parameter_ranges"]
                        if parameter_range["node"] == node.name]
         if definitions:

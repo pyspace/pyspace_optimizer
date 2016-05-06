@@ -4,13 +4,14 @@ from hyperopt import hp
 
 from pySPACE.missions.nodes.decorators import UniformParameter, QUniformParameter, NormalParameter, QNormalParameter, \
     QLogNormalParameter, LogNormalParameter, QLogUniformParameter, LogUniformParameter, ChoiceParameter
-from pySPACEOptimizer.pipelines.nodes import PipelineNode, PipelineSinkNode, PipelineSourceNode
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace, SinkNodeParameterSpace, \
+    SourceNodeParameterSpace
 
 
-class HyperoptNode(PipelineNode):
+class HyperoptNodeParameterSpace(NodeParameterSpace):
 
     def __init__(self, node_name, task):
-        super(HyperoptNode, self).__init__(node_name=node_name, task=task)
+        super(HyperoptNodeParameterSpace, self).__init__(node_name=node_name, task=task)
 
     def _handle_parameter(self, name, parameter):
         if isinstance(parameter, NormalParameter):
@@ -23,7 +24,8 @@ class HyperoptNode(PipelineNode):
             value = parameter
         return value
 
-    def _handle_normal_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_normal_parameter(name, parameter):
         if isinstance(parameter, QLogNormalParameter):
             return hp.qlognormal(name, parameter.mu, parameter.sigma, parameter.q)
         elif isinstance(parameter, LogNormalParameter):
@@ -33,7 +35,8 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, NormalParameter):
             return hp.normal(name, parameter.mu, parameter.sigma)
 
-    def _handle_uniform_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_uniform_parameter(name, parameter):
         if isinstance(parameter, QLogUniformParameter):
             return hp.qloguniform(name, parameter.min, parameter.max, parameter.q)
         elif isinstance(parameter, LogUniformParameter):
@@ -43,17 +46,18 @@ class HyperoptNode(PipelineNode):
         elif isinstance(parameter, UniformParameter):
             return hp.uniform(name, parameter.min, parameter.max)
 
-    def _handle_choice_parameter(self, name, parameter):
+    @staticmethod
+    def _handle_choice_parameter(name, parameter):
         return hp.choice(name, parameter.choices)
 
     def parameter_space(self):
         return {name: self._handle_parameter(name, parameter)
-                for name, parameter in super(HyperoptNode, self).parameter_space().items()}
+                for name, parameter in super(HyperoptNodeParameterSpace, self).parameter_space().items()}
 
 
-class HyperoptSinkNode(PipelineSinkNode):
+class HyperoptSinkNodeParameterSpace(SinkNodeParameterSpace):
     pass
 
 
-class HyperoptSourceNode(PipelineSourceNode):
+class HyperoptSourceNodeParameterSpace(SourceNodeParameterSpace):
     pass

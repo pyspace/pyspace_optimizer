@@ -1,11 +1,10 @@
+import copy
 import os
-import time
 
-from hyperopt import Trials, Domain, base, JOB_STATE_NEW, JOB_STATE_DONE
+from hyperopt import Trials, Domain, base, JOB_STATE_DONE
 
 from pySPACE.missions.nodes.decorators import ChoiceParameter
-from pySPACEOptimizer.optimizer.optimizer_pool import OptimizerPool
-from pySPACEOptimizer.pipelines import PipelineNode
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 
 try:
     # noinspection PyCompatibility
@@ -15,26 +14,33 @@ except ImportError:
 
 
 class Trial(object):
-    def __init__(self, loss, parameters):
-        self.__loss = loss
-        self.__parameters = parameters
+    def __init__(self, trial):
+        self.__trial = trial
+
+    @property
+    def id(self):
+        return self.__trial["tid"]
 
     @property
     def loss(self):
-        return self.__loss
+        return self.__trial["result"]["loss"]
 
     def parameters(self, pipeline):
+        parameters = base.spec_from_misc(self.__trial["misc"])
         new_pipeline_space = {}
-        new_parameters = self.__parameters
+        new_parameters = copy.copy(parameters)
         for node in pipeline.nodes:
-            new_pipeline_space.update(PipelineNode.parameter_space(node))
+            new_pipeline_space.update(NodeParameterSpace.parameter_space(node))
 
-        for key, value in self.__parameters.items():
+        for key, value in parameters.items():
             if isinstance(new_pipeline_space[key], ChoiceParameter):
                 new_parameters[key] = new_pipeline_space[key].choices[value]
             else:
                 new_parameters[key] = value
         return new_parameters
+
+    def __getitem__(self, item):
+        return self.__trial[item]
 
 
 def evaluate_trial(domain, trials, trial):
@@ -54,7 +60,6 @@ def evaluate_trial(domain, trials, trial):
 
 # noinspection PyAbstractClass
 class PersistentTrials(Trials):
-
     STORAGE_NAME = "trials.pickle"
 
     def __init__(self, trials_dir, exp_key=None, refresh=True):
@@ -113,6 +118,7 @@ class PersistentTrials(Trials):
         # JOB_STATUS_ERROR, JOB_STATUS_DONE, JOB_STATUS_RUNNING, JOB_STATUS_NEW
         def get_state(item):
             return item["state"]
+
         return sorted(self._dynamic_trials, key=get_state, reverse=True)
 
     def _update_doc(self, trial):
@@ -123,10 +129,17 @@ class PersistentTrials(Trials):
             evaluate_trial(domain=domain, trials=self, trial=trial)
             yield trial
 
-    def _evaluate(self, domain):
+    def _evaluate(self, domain, evaluations, pass_):
         # Get the trials to evaluate
-        trials = [trial for trial in self._dynamic_trials if trial["state"] == JOB_STATE_NEW]
-        for trial in self._do_evaluate(domain=domain, trials=trials):
+        trials_to_evaluate = []
+        # yield all already evaluated trials
+        for trial in self._dynamic_trials[evaluations * (pass_ - 1):evaluations * pass_]:
+            if trial["state"] == base.JOB_STATE_NEW:
+                trials_to_evaluate.append(trial)
+            else:
+                yield trial
+        # evaluate the trials that have to be done and yield the result
+        for trial in self._do_evaluate(domain, trials_to_evaluate):
             self._update_doc(trial=trial)
             yield trial
 
@@ -148,26 +161,18 @@ class PersistentTrials(Trials):
                     return False
         return True
 
-    def minimize(self, fn, space, algo, max_evals, rseed=123):
+    def minimize(self, fn, space, algo, evaluations, pass_, rseed=123):
         domain = Domain(fn, space, rseed=rseed)
         # Enqueue the trials
-        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=max_evals, rseed=rseed):
+        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=evaluations * pass_, rseed=rseed):
             raise StopIteration()
 
         # Do one minimization step and yield the result
-        for trial in self._evaluate(domain=domain):
+        for trial in self._evaluate(domain=domain, evaluations=evaluations, pass_=pass_):
             # yield the result
-            yield Trial(trial["result"]["loss"], base.spec_from_misc(trial["misc"]))
+            yield Trial(trial)
         # Refresh the trials to persist the changes
         self.refresh()
-
-    def fmin(self, fn, space, algo, max_evals, rseed=123):
-        # Do all minimization steps
-        while self.minimize(fn=fn, space=space, algo=algo, max_evals=max_evals, rseed=rseed):
-            pass
-
-        # Return the best result
-        return self.argmin
 
     def __getstate__(self):
         result = self.__dict__.copy()
@@ -176,7 +181,7 @@ class PersistentTrials(Trials):
     @property
     def best_trial(self):
         best_trial = super(PersistentTrials, self).best_trial
-        return Trial(best_trial["result"]["loss"], base.spec_from_misc(best_trial["misc"]))
+        return Trial(best_trial)
 
     @property
     def num_finished(self):
@@ -184,41 +189,3 @@ class PersistentTrials(Trials):
 
     def __getitem__(self, index):
         return self._dynamic_trials[index]
-
-
-def trials_wrapper(args):
-    return evaluate_trial(*args)
-
-
-# noinspection PyAbstractClass
-class MultiprocessingPersistentTrials(PersistentTrials):
-
-    async = False
-
-    def _do_evaluate(self, domain, trials):
-        # Every worker just has to handle one task per default
-        pool = OptimizerPool()
-
-        # Create the arguments passed to the evaluation method
-        args = [(domain, self, trial) for trial in trials]
-
-        def _yield_args():
-            for arg in args:
-                yield arg
-                # We need to sleep at least one second between two evaluations,
-                # because pySPACE names the result folders with timestamps
-                time.sleep(1)
-
-        # noinspection PyProtectedMember
-        chunksize = int(len(args) / pool._processes) if len(args) > pool._processes else 1
-
-        # noinspection PyBroadException
-        try:
-            for trial in pool.imap_unordered(trials_wrapper, iterable=_yield_args(), chunksize=chunksize):
-                yield trial
-            # Close the pool
-            pool.close()
-        except:
-            pool.terminate()
-        finally:
-            pool.join()
