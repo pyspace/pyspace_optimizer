@@ -96,6 +96,10 @@ class Task(dict):
             raise ValueError("'%s' is either not a source node or is not able to emit data type '%s'" % (
                 source_node, self.data_set_type))
 
+        # Create the base result dir
+        if not os.path.isdir(self.base_result_dir):
+            os.makedirs(self.base_result_dir)
+
     def log_task(self):
         format_ = pprint.pformat(self, indent=4)
         self._logger.debug("Task '{task}': {format}".format(task=self, format=format_))

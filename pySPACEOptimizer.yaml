@@ -17,6 +17,13 @@ handlers:
     level: INFO
     stream: ext://sys.stdout
 
+  pySPACEOptimizer_handler:
+    class: logging.handlers.RotatingFileHandler
+    formatter: file_formatter
+    level: DEBUG
+    mode: w
+    filename: pySPACEOptimizer.pylog
+
   pipeline_handler:
     class: logging.handlers.RotatingFileHandler
     formatter: file_formatter
@@ -51,7 +58,7 @@ loggers:
     propagate: False
     handlers:
       - console
-      - file
+      - pySPACEOptimizer_handler
 
   pySPACEOptimizer.pipeline:
     level: DEBUG

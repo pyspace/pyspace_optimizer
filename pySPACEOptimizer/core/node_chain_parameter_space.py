@@ -43,6 +43,10 @@ class NodeChainParameterSpace(object):
         self.configuration = configuration
         self._logger = None
         self._error_logger = None
+        # Create the pipeline dir
+        if not os.path.isdir(self.base_result_dir):
+            os.makedirs(self.base_result_dir)
+        # Log the pipeline
         self.logger.info("{object!s} is {object!r}".format(object=self))
 
     def __patch_logger(self, name, file_name, level):
