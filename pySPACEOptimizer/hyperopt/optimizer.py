@@ -1,20 +1,17 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
-import os
 import logging
 import numpy
+import os
 import shutil
 import time
 import warnings
-from Queue import Empty
-from multiprocessing import Manager
 
-import sys
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
-from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar, ETA
+from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
 from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
@@ -119,7 +116,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
             # close the pool
             pool.close()
+            # Wait for the pipelines to finish
             pool.join()
+            # check the results
             for result in results:
                 if not result.successful():
                     self.logger.error(result.get())
