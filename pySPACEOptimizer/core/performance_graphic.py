@@ -1,6 +1,8 @@
 import logging
 import threading
 from collections import defaultdict
+import matplotlib
+matplotlib.use('pdf', warn=True, force=True)
 from matplotlib import pyplot
 
 

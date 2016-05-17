@@ -105,8 +105,6 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def __init__(self, task, backend, best_result_file):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
-        manager = Manager()
-        self._queue = manager.Queue()
 
     # noinspection PyBroadException
     def _do_optimization(self, pool):
@@ -116,61 +114,25 @@ class HyperoptOptimizer(PySPACEOptimizer):
             for node_chain in self._generate_node_chain_parameter_spaces():
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
-                                                args=(self._task, node_chain, self._backend, self._queue)))
+                                                args=(self._task, node_chain, self._backend, self.queue)))
             self.logger.debug("Done generating pipelines")
 
             # close the pool
             pool.close()
-            # Read the queue until all jobs are done or the max evaluation time is reached
-            return self._read_queue(results=results)
+            pool.join()
+            for result in results:
+                if not result.successful():
+                    self.logger.error(result.get())
         except Exception:
             self.logger.exception("Error doing optimization pass, returning infinite loss.")
-            return float("inf"), None, None
-        finally:
             pool.terminate()
             pool.join()
+            return float("inf"), None, None
 
     def optimize(self):
         self.logger.debug("Creating optimization pool")
         pool = OptimizerPool()
         return self._do_optimization(pool)
-
-    def _read_queue(self, results):
-        self.logger.debug("Reading queue")
-        best = [float("inf"), None, None]
-        evaluations = self._task["evaluations_per_pass"]
-        passes = self._task["passes"]
-        # Create a progress bar
-        progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar(), ' ', ETA()],
-                                   maxval=evaluations * passes * len(results), fd=sys.stdout)
-        progress_bar.update(0)
-        while True:
-            if self._queue.empty() and results is not None and all([result.ready() for result in results]):
-                # the queue is empty and all workers are finished: break
-                # but first check for errors:
-                for result in results:
-                    if not result.successful():
-                        self.logger.error(result.get())
-                break
-            else:
-                try:
-                    result = self._queue.get(timeout=1)
-                    id_, loss, pipeline, parameters = result
-                    self.logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s",
-                                      pipeline, loss, parameters)
-                    if loss < best[0]:
-                        best = [loss, pipeline, parameters]
-                        self._store_best_result(best_pipeline=pipeline,
-                                                best_parameters=parameters)
-                    # Update the progress bar
-                    progress_bar.update(progress_bar.currval + 1)
-                    # Update the performance graphic
-                    self._performance_graphic_add(pipeline, id_, loss)
-                except Empty:
-                    pass
-        else:
-            self.logger.info("Reached maximal evaluation time, breaking evaluation")
-        return best
 
     def _create_node(self, node_name):
         if is_sink_node(node_name):
