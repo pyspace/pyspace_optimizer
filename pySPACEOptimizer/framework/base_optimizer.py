@@ -57,10 +57,9 @@ class PySPACEOptimizer(object):
     def _store_best_result(self, best_pipeline, best_parameters):
         """
         :type best_pipeline: NodeChainParameterSpace
-        :type best_parameters: dict[str, list[object]]
+        :type best_parameters: dict[str, object]
         """
-        parameter_settings = [{param: [value] for param, value in best_parameters.iteritems()}]
-        operation_spec = best_pipeline.operation_spec(parameter_settings=parameter_settings)
+        operation_spec = best_pipeline.operation_spec(parameter_settings=[best_parameters])
         with open(self._best_result_file, "wb") as best_result_file:
             # Write the result to the object
             best_result_file.write(operation_spec["base_file"])
