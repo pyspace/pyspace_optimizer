@@ -62,7 +62,11 @@ class NodeParameterSpace(object):
         :rtype: set[str]
         """
         if self.__optimization_parameters is None:
-            if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
+            self.__optimization_parameters = set([parameter.parameter_name
+                                                  for parameter in getattr(self.class_, PARAMETER_ATTRIBUTE, set())])
+            if not self.__optimization_parameters:
+                # No optimization parameters have been defined
+                # try to get them from the __init__ method
                 self.__optimization_parameters = set()
                 for class_ in inspect.getmro(self.class_):
                     if class_ != object and hasattr(class_, "__init__"):
@@ -75,9 +79,7 @@ class NodeParameterSpace(object):
                                                                    arg.lower().find("warn") == -1 and
                                                                    arg not in self._values and
                                                                    isinstance(default, (bool, float, int))])
-            else:
-                self.__optimization_parameters = set([parameter.parameter_name
-                                                      for parameter in getattr(self.class_, PARAMETER_ATTRIBUTE)])
+
             self.__optimization_parameters.update([parameter.parameter_name for parameter in self._values])
         return self.__optimization_parameters
 
@@ -92,9 +94,10 @@ class NodeParameterSpace(object):
         :return: A dictionary containing all parameters and their default values.
         :rtype: dict[str, object]
         """
-        if not hasattr(self.class_, PARAMETER_ATTRIBUTE):
-            # Return 1 for every parameter not set
-            space = set()
+        space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE, set()))
+        # If no optimization parameters have been defined
+        # try to get them from the __init__ method
+        if not space:
             parameters = self.optimization_parameters
             for class_ in inspect.getmro(self.class_):
                 if class_ != object and hasattr(class_, "__init__"):
@@ -114,8 +117,7 @@ class NodeParameterSpace(object):
                                     space.add(QNormalParameter(param, mu=default, sigma=1, q=1))
                                 elif isinstance(default, (list, tuple)):
                                     space.add(ChoiceParameter(param, choices=default))
-        else:
-            space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE))
+
         # Update with the default values
         values = copy.copy(self._values)
         values.update(space)
