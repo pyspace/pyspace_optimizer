@@ -54,7 +54,7 @@ class PySPACEOptimizer(object):
                     id_, loss, pipeline, parameters = result
                     self.__optimizer.logger.debug("Checking result of pipeline '%s':\nLoss: %s, Parameters: %s",
                                                   pipeline, loss, parameters)
-                    if loss < self.__optimizer.best[0]:
+                    if loss <= self.__optimizer.best[0]:
                         self.__optimizer.best = [loss, pipeline, parameters]
                         self.__optimizer.store_best_result(best_pipeline=pipeline,
                                                            best_parameters=parameters)
