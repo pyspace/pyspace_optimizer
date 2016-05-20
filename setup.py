@@ -18,7 +18,10 @@ setup(
     url="https://gitlab.informatik.uni-bremen.de/hansa/pyspace_optimizer",
     packages=["pySPACEOptimizer"],
     # FIXME: Include pySPACE as dependency as soon as the setup.py of the package does install the software correctly
-    install_requires=["numpy", "hyperopt", "matplotlib", 'scipy'],
+    install_requires=["numpy", "hyperopt", 'scipy'],
+    extras_require={
+        "graphs": "matplotlib"
+    },
     entry_points={
         "console_scripts": [
             "pySPACEOptimizer = pySPACEOptimizer.core.__main__:main"
