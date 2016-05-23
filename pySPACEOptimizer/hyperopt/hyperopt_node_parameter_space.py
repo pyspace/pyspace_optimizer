@@ -15,7 +15,9 @@ class HyperoptNodeParameterSpace(NodeParameterSpace):
         super(HyperoptNodeParameterSpace, self).__init__(node_name=node_name, task=task)
 
     def _handle_parameter(self, name, parameter):
-        if isinstance(parameter, NormalParameter):
+        if isinstance(parameter, LogNormalParameter):
+            value = self._handle_lognormal_parameter(name, parameter)
+        elif isinstance(parameter, NormalParameter):
             value = self._handle_normal_parameter(name, parameter)
         elif isinstance(parameter, UniformParameter):
             value = self._handle_uniform_parameter(name, parameter)
@@ -26,12 +28,15 @@ class HyperoptNodeParameterSpace(NodeParameterSpace):
         return value
 
     @staticmethod
-    def _handle_normal_parameter(name, parameter):
+    def _handle_lognormal_parameter(name, parameter):
         if isinstance(parameter, QLogNormalParameter):
             return hp.qlognormal(name, math.log(parameter.scale), parameter.shape, parameter.q)
         elif isinstance(parameter, LogNormalParameter):
             return hp.lognormal(name, math.log(parameter.scale), parameter.shape)
-        elif isinstance(parameter, QNormalParameter):
+
+    @staticmethod
+    def _handle_normal_parameter(name, parameter):
+        if isinstance(parameter, QNormalParameter):
             return hp.qnormal(name, parameter.mu, parameter.sigma, parameter.q)
         elif isinstance(parameter, NormalParameter):
             return hp.normal(name, parameter.mu, parameter.sigma)
