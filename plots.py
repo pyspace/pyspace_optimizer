@@ -15,9 +15,9 @@ from scipy import stats
 
 
 def _plot_means(means, plot):
-    y_max = plot.get_ylim()[1]
+    max_ = plot.get_ylim()[1]
     for mean_x, mean_y, color in means:
-        y_max = (1.0 / y_max) * mean_y
+        y_max = (1.0 / max_) * mean_y
         plot.axvline(x=mean_x, ymax=y_max, linestyle="--", color=color)
     plot.axvline(x=0, ymax=0, linestyle="--", color="k", label="mean of distribution")
 
@@ -67,7 +67,7 @@ def loguniform_pdf(x, min_value, max_value):
 
 def loguniform_cdf(x, min_value, max_value):
     def func(x_):
-        x_values = np.linspace(start=0, stop=x_, num=1000, retstep=False)
+        x_values = np.linspace(start=min_value, stop=x_, num=1000, retstep=False)
         y_values = loguniform_pdf(x_values, min_value, max_value)
         return np.trapz(y_values, x_values)
 

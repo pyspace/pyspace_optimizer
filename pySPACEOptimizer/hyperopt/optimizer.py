@@ -123,10 +123,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 if not result.successful():
                     self.logger.error(result.get())
         except Exception:
-            self.logger.exception("Error doing optimization pass, returning infinite loss.")
+            self.logger.exception("Error doing optimization. Giving up!")
             pool.terminate()
             pool.join()
-            return float("inf"), None, None
 
     def optimize(self):
         self.logger.debug("Creating optimization pool")
