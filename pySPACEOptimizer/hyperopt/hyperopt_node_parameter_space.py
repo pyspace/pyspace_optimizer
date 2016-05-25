@@ -44,7 +44,8 @@ class HyperoptNodeParameterSpace(NodeParameterSpace):
     @staticmethod
     def _handle_uniform_parameter(name, parameter):
         if isinstance(parameter, QLogUniformParameter):
-            return hp.qloguniform(name, math.log(parameter.min), math.log(parameter.max), parameter.q)
+            return hp.qloguniform(name, math.log(parameter.min - parameter.q / 2.0),
+                                  math.log(parameter.max + parameter.q / 2.0), parameter.q)
         elif isinstance(parameter, LogUniformParameter):
             return hp.loguniform(name, math.log(parameter.min), math.log(parameter.max))
         elif isinstance(parameter, QUniformParameter):
