@@ -3,7 +3,7 @@ import inspect
 
 from pySPACE.missions import nodes
 from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, PARAMETER_TYPES, ChoiceParameter, NormalParameter, \
-    QNormalParameter, BooleanParameter
+    QNormalParameter, BooleanParameter, NoOptimizationParameter
 
 
 class NodeParameterSpace(object):
@@ -25,11 +25,11 @@ class NodeParameterSpace(object):
         self._values = set()
         for parameter, values in task.default_parameters(self).iteritems():
             if isinstance(values, dict):
-                type = values.get("type", None)
-                if type is not None:
+                type_ = values.get("type", None)
+                if type_ is not None:
                     del values["type"]
                     values["parameter_name"] = parameter
-                    self._values.add(PARAMETER_TYPES[type](**values))
+                    self._values.add(PARAMETER_TYPES[type_](**values))
             else:
                 if not isinstance(values, list):
                     values = [values]
@@ -44,44 +44,11 @@ class NodeParameterSpace(object):
                     argspec = inspect.getargspec(class_.__init__)
                     if argspec.defaults is not None:
                         default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                        self.__parameters.update([arg for arg, default in default_args if arg != "self"])
+                        self.__parameters.update([arg for arg, default in default_args
+                                                  if arg != "self" and
+                                                  arg.lower().find("debug") == -1 and
+                                                  arg.lower().find("warn") == -1])
         return self.__parameters
-
-    @property
-    def optimization_parameters(self):
-        """
-        Returns the names of the parameters of this node.
-        If the class that implements this node defines it's hyper parameters, these will be used as
-        optimization parameters. Otherwise every parameter of the node's __init__ method that has a default of type
-        bool, float, int  is considered as a parameter of the node except for:
-            - self
-            - .*debug.*
-            - .*warn.*
-
-        :return: A list of the parameters of this node.
-        :rtype: set[str]
-        """
-        if self.__optimization_parameters is None:
-            self.__optimization_parameters = set([parameter.parameter_name
-                                                  for parameter in getattr(self.class_, PARAMETER_ATTRIBUTE, set())])
-            if not self.__optimization_parameters:
-                # No optimization parameters have been defined
-                # try to get them from the __init__ method
-                self.__optimization_parameters = set()
-                for class_ in inspect.getmro(self.class_):
-                    if class_ != object and hasattr(class_, "__init__"):
-                        argspec = inspect.getargspec(class_.__init__)
-                        if argspec.defaults is not None:
-                            default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                            self.__optimization_parameters.update([arg for arg, default in default_args
-                                                                   if arg != "self" and
-                                                                   arg.lower().find("debug") == -1 and
-                                                                   arg.lower().find("warn") == -1 and
-                                                                   arg not in self._values and
-                                                                   isinstance(default, (bool, float, int))])
-
-            self.__optimization_parameters.update([parameter.parameter_name for parameter in self._values])
-        return self.__optimization_parameters
 
     def parameter_space(self):
         """
@@ -97,15 +64,14 @@ class NodeParameterSpace(object):
         space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE, set()))
         # If no optimization parameters have been defined
         # try to get them from the __init__ method
-        if not space:
-            parameters = self.optimization_parameters
+        if not space or all([isinstance(parameter, NoOptimizationParameter) for parameter in space]):
             for class_ in inspect.getmro(self.class_):
                 if class_ != object and hasattr(class_, "__init__"):
                     argspec = inspect.getargspec(class_.__init__)
                     if argspec.defaults is not None:
                         default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
                         for param, default in default_args:
-                            if param in parameters:
+                            if param != "self" and param.lower().find("debug") == -1 and param.lower().find("warn") == -1:
                                 if isinstance(default, bool):
                                     # Add a boolean choice
                                     space.add(BooleanParameter(param))
@@ -122,7 +88,8 @@ class NodeParameterSpace(object):
         values = copy.copy(self._values)
         values.update(space)
         # Create a dictionary containing the optimization name as a key
-        return {self._make_parameter_name(parameter): parameter for parameter in values}
+        return {self._make_parameter_name(parameter): parameter for parameter in values
+                if not isinstance(parameter, NoOptimizationParameter)}
 
     def as_dictionary(self):
         """
@@ -134,9 +101,13 @@ class NodeParameterSpace(object):
         :rtype: dict[str, str|bool|float|int|dict[str, str|bool|float|int]]
         """
         result = {"node": self.name}
-        if self.optimization_parameters:
-            result["parameters"] = {param: "${{{name}}}".format(name=self._make_parameter_name(param))
-                                    for param in self.optimization_parameters}
+        space = self.parameter_space()
+        if space:
+            result["parameters"] = {}
+            for parameter in self.parameters:
+                parameter_name = self._make_parameter_name(parameter)
+                if parameter_name in space:
+                    result["parameters"][parameter] = "${{{name}}}".format(name=parameter_name)
         return result
 
     def _make_parameter_name(self, parameter):
@@ -177,9 +148,8 @@ class SinkNodeParameterSpace(NodeParameterSpace):
         self._class_labels = task["class_labels"]
         self._property = "ir_class"
 
-    @property
-    def optimization_parameters(self):
-        return [parameter.parameter_name for parameter in self._values]
+    def parameter_space(self):
+        return {self._make_parameter_name(parameter): parameter for parameter in self._values}
 
     def as_dictionary(self):
         result = super(SinkNodeParameterSpace, self).as_dictionary()
@@ -191,6 +161,6 @@ class SinkNodeParameterSpace(NodeParameterSpace):
 
 
 class SourceNodeParameterSpace(NodeParameterSpace):
-    @property
-    def optimization_parameters(self):
-        return [parameter.parameter_name for parameter in self._values]
+
+    def parameter_space(self):
+        return {self._make_parameter_name(parameter): parameter for parameter in self._values}

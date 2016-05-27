@@ -120,8 +120,8 @@ class NodeChainParameterSpace(object):
         if self._logger is None:
             self._logger = self.__patch_logger(
                 name="pySPACEOptimizer.pipeline.{pipeline}".format(pipeline=self),
-            file_name="pipeline_output.pylog",
-            level=logging.INFO)
+                file_name="pipeline_output.pylog",
+                level=logging.INFO)
         return self._logger
 
     @property
@@ -129,8 +129,8 @@ class NodeChainParameterSpace(object):
         if self._error_logger is None:
             self._error_logger = self.__patch_logger(
                 name="pySPACEOptimizer.pipeline_errors.{pipeline}".format(pipeline=self),
-            file_name="pipeline_errors.pylog",
-            level=logging.WARNING)
+                file_name="pipeline_errors.pylog",
+                level=logging.WARNING)
         return self._error_logger
 
     def execute(self, backend, parameter_settings=None):
