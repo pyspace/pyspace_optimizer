@@ -190,4 +190,8 @@ class PersistentTrials(Trials):
         return self.count_by_state_unsynced(JOB_STATE_DONE)
 
     def __getitem__(self, index):
-        return self._dynamic_trials[index]
+        return Trial(self._dynamic_trials[index])
+
+    def __iter__(self):
+        for trial in self._dynamic_trials:
+            yield Trial(trial)
