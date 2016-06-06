@@ -14,8 +14,9 @@ except ImportError:
 
 
 class Trial(object):
-    def __init__(self, trial):
+    def __init__(self, trial, trials):
         self.__trial = trial
+        self.__trials = trials
 
     @property
     def id(self):
@@ -24,6 +25,33 @@ class Trial(object):
     @property
     def loss(self):
         return self.__trial["result"]["loss"]
+
+    def aname(self, name):
+        return "ATTACH:%s:%s" % (self.id, name)
+
+    @property
+    def attachments(self):
+        class Attachments(object):
+            def __contains__(_self, name):
+                if "attachments" not in self:
+                    return False
+                return self.aname(name) in self["attachments"]
+
+            def __getitem__(_self, name):
+                if "attachments" not in self:
+                    return None
+                return self["attachments"][self.aname(name)]
+
+            def __setitem__(_self, name, value):
+                if "attachments" not in self:
+                    self["attachments"] = {}
+                self["attachments"][self.aname(name)] = value
+                self.__trials.refresh()
+
+            def __delitem__(_self, name):
+                del self["attachments"][self.aname(name)]
+                self.__trials.refresh()
+        return Attachments()
 
     def parameters(self, pipeline):
         parameters = base.spec_from_misc(self.__trial["misc"])
@@ -172,7 +200,7 @@ class PersistentTrials(Trials):
         # Do one minimization step and yield the result
         for trial in self._evaluate(domain=domain, evaluations=evaluations, pass_=pass_):
             # yield the result
-            yield Trial(trial)
+            yield Trial(trial, self)
         # Refresh the trials to persist the changes
         self.refresh()
 
@@ -183,15 +211,27 @@ class PersistentTrials(Trials):
     @property
     def best_trial(self):
         best_trial = super(PersistentTrials, self).best_trial
-        return Trial(best_trial)
+        return Trial(best_trial, self)
 
     @property
     def num_finished(self):
         return self.count_by_state_unsynced(JOB_STATE_DONE)
 
     def __getitem__(self, index):
-        return Trial(self._dynamic_trials[index])
+        return Trial(self._dynamic_trials[index], self)
 
     def __iter__(self):
         for trial in self._dynamic_trials:
-            yield Trial(trial)
+            yield Trial(trial, self)
+
+    def aname(self, trial, name):
+        return self[trial].aname(name)
+
+    def trial_attachments(self, trial):
+        """
+        Support syntax for load:  self.trial_attachments(doc)[name]
+        # -- does this work syntactically?
+        #    (In any event a 2-stage store will work)
+        Support syntax for store: self.trial_attachments(doc)[name] = value
+        """
+        return self[trial].attachments
