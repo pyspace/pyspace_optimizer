@@ -1,16 +1,18 @@
+# noinspection PyPackageRequirements
+import matplotlib
 import os
-import threading
+# noinspection PyPackageRequirements
+from PyQt4 import QtGui
 from argparse import ArgumentParser
 
-import matplotlib
-from PyQt4 import QtGui
 # Use the Qt-Backend
-from collections import defaultdict
 
 matplotlib.use("Qt4Agg")
 
 # now import pyplot and the backend components
+# noinspection PyPackageRequirements
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg, NavigationToolbar2QT
+# noinspection PyPackageRequirements
 from matplotlib import pyplot
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 
@@ -41,7 +43,7 @@ class PipelineList(QtGui.QListWidget):
 
 
 class PipelineGraph(QtGui.QWidget):
-    def __init__(self, pipelines, trials, average=1, parent=None):
+    def __init__(self, pipelines, trials, average=1, pick_callback=None, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         self.__figure = pyplot.Figure()
@@ -66,17 +68,22 @@ class PipelineGraph(QtGui.QWidget):
         vbox.addWidget(nav_bar_container)
         self.setLayout(vbox)
 
-        self.__pipelines = pipelines
+        self.__artists = {pipeline: None for pipeline in pipelines}
+        self.__selected_pipeline = None
+        self.__mouse_artist = None
+        self.__trial_artist = None
         self.__average = average
         self.__trials = trials
-        self.__selected_pipeline = None
         self.__tids = {}
         self.__averages = {}
+        self.__pick_callback = pick_callback
+        self.__mouse_id = None
+        self.__mouse_x = None
+        self.__pick_id = None
         self._calculate_plots()
-        self._redraw()
 
     def _calculate_plots(self):
-        for pipeline in self.__pipelines:
+        for pipeline in self.__artists.keys():
             mean = 0
             number_of_points = 0
             self.__averages[pipeline] = []
@@ -101,47 +108,107 @@ class PipelineGraph(QtGui.QWidget):
                         # No valid points inside the window,
                         # average must be infinitely high
                         self.__averages[pipeline].append(float("inf"))
+            if self.__artists[pipeline] is None:
+                self.__artists[pipeline] = self.__axes.plot(self.__tids[pipeline], self.__averages[pipeline])[0]
+            else:
+                self.__artists[pipeline].set_data([self.__tids[pipeline], self.__averages[pipeline]])
 
-    def _redraw(self):
-        self.__figure.clear()
-        axes = self.__figure.add_subplot(111)
-        std_alpha = 1.0 if self.__selected_pipeline is None else 0.2
-        for pipeline in self.__pipelines:
-            axes.plot(self.__tids[pipeline], self.__averages[pipeline],
-                      alpha=1.0 if pipeline == self.__selected_pipeline else std_alpha,
-                      figure=self.__figure)
+    def __handle_pick(self, event):
+        if self.__pick_callback is not None:
+            self.__pick_callback(int(event.xdata))
+
+    def _move_mouse(self, event):
+        pipeline_data = self.__averages[self.__selected_pipeline]
+        if event.xdata is not None and self.__average <= event.xdata < len(pipeline_data) + self.__average:
+            x = int(event.xdata)
+            if self.__mouse_x != x:
+                self.__mouse_x = x
+                index = x - self.__average
+                y = pipeline_data[index]
+                if self.__mouse_artist is None:
+                    self.__mouse_artist = self.__axes.plot(x, y, marker="D", scalex=False, scaley=False)[0]
+                else:
+                    self.__mouse_artist.set_data([x, y])
+                self.__mouse_artist.set_visible(True)
+                self.__canvas.draw()
+
+    def select_pipeline(self, pipeline):
+        self.__selected_pipeline = pipeline
+        for p, artist in self.__artists.items():
+            if p == pipeline:
+                artist.set_alpha(1)
+            else:
+                artist.set_alpha(0.1)
+        if pipeline is not None:
+            # Register for the mouse move event
+            self.__mouse_id = self.__canvas.mpl_connect("motion_notify_event", self._move_mouse)
+            # And for the pick event
+            self.__pick_id = self.__canvas.mpl_connect("button_release_event", self.__handle_pick)
+        else:
+            self.__canvas.mpl_disconnect(self.__mouse_id)
+            self.__canvas.mpl_disconnect(self.__pick_id)
+        if self.__mouse_artist is not None:
+            self.__mouse_artist.set_visible(False)
+        if self.__trial_artist is not None:
+            self.__trial_artist.set_visible(False)
         self.__canvas.draw()
 
-
-    def select(self, pipeline):
-        self.__selected_pipeline = pipeline
-        self._redraw()
+    def select_trial(self, tid):
+        if tid >= self.__average:
+            index = tid - self.__average
+            y = self.__averages[self.__selected_pipeline][index]
+            if self.__trial_artist is None:
+                self.__trial_artist = self.__axes.plot(tid, y, marker="D", scalex=False, scaley=False)[0]
+            else:
+                self.__trial_artist.set_data([tid, y])
+            self.__trial_artist.set_visible(True)
+            self.__canvas.draw()
 
     def set_average(self, average):
         try:
             self.__average = int(average)
             self._calculate_plots()
-            self._redraw()
+            self.__canvas.draw()
         except (ValueError, TypeError):
             pass
 
 
 class PipelineTable(QtGui.QTableWidget):
-    def __init__(self, trials, parent=None):
+    def __init__(self, trials, row_selection_callback=None, parent=None):
         super(PipelineTable, self).__init__(parent)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
-        self.setMaximumHeight(150)
+        self.setMaximumHeight(250)
+        self.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.__trials = trials
+        self.__row_selection_callback = row_selection_callback
+        # noinspection PyUnresolvedReferences
+        self.itemSelectionChanged.connect(self.selection_changed)
+
+    def selection_changed(self):
+        if self.__row_selection_callback is not None:
+            if self.selectedItems():
+                self.__row_selection_callback(self.selectedItems()[0].row())
+            else:
+                self.__row_selection_callback(None)
 
     def display(self, pipeline):
         self.clear()
-        self.setColumnCount(1)
-        self.setHorizontalHeaderLabels(["Loss", "Parameters"])
+        number_of_parameters = len(self.__trials[pipeline][0]["misc"]["vals"])
+        self.setColumnCount(number_of_parameters + 1)
+        self.setHorizontalHeaderLabels(["Loss"] + self.__trials[pipeline][0]["misc"]["vals"].keys())
         if pipeline in self.__trials:
             for trial in self.__trials[pipeline]:
-                self.insertRow(trial.id)
+                if trial.id >= self.rowCount():
+                    self.insertRow(trial.id)
                 self.setItem(trial.id, 0, QtGui.QTableWidgetItem("{loss:.3f}".format(loss=trial.loss)))
-                self.setItem(trial.id, 1, QtGui.QTableWidgetItem("TODO"))
+                for i, value in enumerate(trial["misc"]["vals"].values(), 1):
+                    self.setItem(trial.id, i, QtGui.QTableWidgetItem("{parameter!s}".format(parameter=value[0])))
+
+    def select_trial(self, tid):
+        if 0 <= tid < self.rowCount():
+            self.selectRow(tid)
 
 
 class PerformanceAnalysisWidget(QtGui.QWidget):
@@ -159,8 +226,8 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
 
         # Create the widgets
         self.__list_view = PipelineList(self.__pipelines, self._change_pipeline, self)
-        self.__graph_view = PipelineGraph(self.__pipelines, self.__trials, parent=self)
-        self.__table_view = PipelineTable(self.__trials, parent=self)
+        self.__graph_view = PipelineGraph(self.__pipelines, self.__trials, pick_callback=self._pick_trial, parent=self)
+        self.__table_view = PipelineTable(self.__trials, self._select_trial, parent=self)
         right_widget = QtGui.QWidget()
 
         # Layout the widgets
@@ -173,8 +240,15 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         main_layout.addWidget(right_widget)
         self.setLayout(main_layout)
 
+    def _select_trial(self, tid):
+        self.__graph_view.select_trial(tid)
+
     def _change_pipeline(self, pipeline):
+        self.__graph_view.select_pipeline(pipeline)
         self.__table_view.display(pipeline)
+
+    def _pick_trial(self, tid):
+        self.__table_view.select_trial(tid)
 
 
 class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
