@@ -28,7 +28,7 @@ class NoValidExperiment(Exception):
 class PipelineList(QtGui.QListWidget):
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
-        self.addItems(pipelines)
+        self.addItems([pipeline.replace("_", "-") for pipeline in pipelines])
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
@@ -39,7 +39,7 @@ class PipelineList(QtGui.QListWidget):
 
     def selection_changed(self):
         if self.__callback is not None:
-            self.__callback(unicode(self.selectedItems()[0].text()))
+            self.__callback(unicode(self.selectedItems()[0].text().replace("-", "_")))
 
 
 class PipelineGraph(QtGui.QWidget):
@@ -47,7 +47,11 @@ class PipelineGraph(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         self.__figure = pyplot.Figure()
+        self.__figure.set_tight_layout(True)
         self.__axes = self.__figure.add_subplot(111)
+        self.__axes.set_xlabel("Trial")
+        self.__axes.set_ylabel("Loss")
+        self.__axes.set_title("Performance analysis")
         self.__canvas = FigureCanvasQTAgg(self.__figure)
         self.__canvas.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         self.__nav_bar = NavigationToolbar2QT(self.__canvas, None)
@@ -109,7 +113,8 @@ class PipelineGraph(QtGui.QWidget):
                         # average must be infinitely high
                         self.__averages[pipeline].append(float("inf"))
             if self.__artists[pipeline] is None:
-                self.__artists[pipeline] = self.__axes.plot(self.__tids[pipeline], self.__averages[pipeline])[0]
+                self.__artists[pipeline] = self.__axes.plot(self.__tids[pipeline], self.__averages[pipeline],
+                                                            label=pipeline.replace("_", "-"))[0]
             else:
                 self.__artists[pipeline].set_data([self.__tids[pipeline], self.__averages[pipeline]])
 
@@ -126,7 +131,8 @@ class PipelineGraph(QtGui.QWidget):
                 index = x - self.__average
                 y = pipeline_data[index]
                 if self.__mouse_artist is None:
-                    self.__mouse_artist = self.__axes.plot(x, y, marker="D", scalex=False, scaley=False)[0]
+                    self.__mouse_artist = self.__axes.plot(x, y, marker="D", scalex=False, scaley=False,
+                                                           label="_mouse_marker")[0]
                 else:
                     self.__mouse_artist.set_data([x, y])
                 self.__mouse_artist.set_visible(True)
@@ -158,7 +164,8 @@ class PipelineGraph(QtGui.QWidget):
             index = tid - self.__average
             y = self.__averages[self.__selected_pipeline][index]
             if self.__trial_artist is None:
-                self.__trial_artist = self.__axes.plot(tid, y, marker="D", scalex=False, scaley=False)[0]
+                self.__trial_artist = self.__axes.plot(tid, y, marker="D", scalex=False, scaley=False,
+                                                       label="_selected_trial")[0]
             else:
                 self.__trial_artist.set_data([tid, y])
             self.__trial_artist.set_visible(True)
@@ -168,6 +175,10 @@ class PipelineGraph(QtGui.QWidget):
         try:
             self.__average = int(average)
             self._calculate_plots()
+            if self.__mouse_artist is not None:
+                self.__mouse_artist.set_visible(False)
+            if self.__trial_artist is not None:
+                self.__trial_artist.set_visible(False)
             self.__canvas.draw()
         except (ValueError, TypeError):
             pass
@@ -176,8 +187,10 @@ class PipelineGraph(QtGui.QWidget):
 class PipelineTable(QtGui.QTableWidget):
     def __init__(self, trials, row_selection_callback=None, parent=None):
         super(PipelineTable, self).__init__(parent)
-        self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
-        self.setMaximumHeight(250)
+        self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.MinimumExpanding)
+        self.setMaximumHeight(300)
+        self.setMinimumHeight(150)
+        self.setAlternatingRowColors(True)
         self.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -205,6 +218,7 @@ class PipelineTable(QtGui.QTableWidget):
                 self.setItem(trial.id, 0, QtGui.QTableWidgetItem("{loss:.3f}".format(loss=trial.loss)))
                 for i, value in enumerate(trial["misc"]["vals"].values(), 1):
                     self.setItem(trial.id, i, QtGui.QTableWidgetItem("{parameter!s}".format(parameter=value[0])))
+                self.resizeRowToContents(trial.id)
 
     def select_trial(self, tid):
         if 0 <= tid < self.rowCount():

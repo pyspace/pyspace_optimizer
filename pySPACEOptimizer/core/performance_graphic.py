@@ -33,6 +33,7 @@ try:
 
         def __update(self):
             figure = pyplot.figure(figsize=(11, 8), dpi=80)
+            figure.set_tight_layout(True)
             pyplot.xlabel("Trial number")
             pyplot.ylabel("Loss")
 
