@@ -112,6 +112,7 @@ class PipelineGraph(QtGui.QWidget):
                       figure=self.__figure)
         self.__canvas.draw()
 
+
     def select(self, pipeline):
         self.__selected_pipeline = pipeline
         self._redraw()
