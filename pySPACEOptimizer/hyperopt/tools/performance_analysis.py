@@ -179,6 +179,9 @@ class PipelineGraph(QtGui.QWidget):
                 self.__mouse_artist.set_visible(False)
             if self.__trial_artist is not None:
                 self.__trial_artist.set_visible(False)
+            # just for consistency, if called from the outside
+            # set the average on the widget
+            self.__average_widget.setText(unicode(average))
             self.__canvas.draw()
         except (ValueError, TypeError):
             pass
@@ -250,15 +253,22 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
                     self.__trials[element] = PersistentTrials(os.path.join(self.__experiment, element), recreate=False)
                     self.__pipelines[element] = self.__trials[element].attachments.get("pipeline", None)
 
+        average = 1
+        # Get the average according to the step size in the task
+        for pipeline in self.__pipelines.values():
+            if pipeline is not None:
+                average = pipeline.configuration["evaluations_per_pass"]
+                break
+
         # Create the widgets
         self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipeline, parent=self)
-        self.__graph_view = PipelineGraph(pipelines=self.__pipelines, trials=self.__trials,
+        self.__graph_view = PipelineGraph(pipelines=self.__pipelines, trials=self.__trials, average=average,
                                           pick_callback=self._pick_trial, parent=self)
         self.__table_view = PipelineTable(pipelines=self.__pipelines, trials=self.__trials,
                                           row_selection_callback=self._select_trial, parent=self)
-        right_widget = QtGui.QWidget()
 
         # Layout the widgets
+        right_widget = QtGui.QWidget()
         main_layout = QtGui.QHBoxLayout()
         main_layout.addWidget(self.__list_view)
         right_layout = QtGui.QVBoxLayout()
