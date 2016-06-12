@@ -14,8 +14,9 @@ except ImportError:
 
 
 class Trial(object):
-    def __init__(self, trial):
+    def __init__(self, trial, attachments):
         self.__trial = trial
+        self.__attachments = attachments
 
     @property
     def id(self):
@@ -39,6 +40,10 @@ class Trial(object):
                 new_parameters[key] = value
         return new_parameters
 
+    @property
+    def attachments(self):
+        return self.__attachments
+
     def __getitem__(self, item):
         return self.__trial[item]
 
@@ -61,16 +66,32 @@ def evaluate_trial(domain, trials, trial):
 # noinspection PyAbstractClass
 class PersistentTrials(Trials):
     STORAGE_NAME = "trials.pickle"
+    ATTACHMENTS_NAME = "attachments.pickle"
 
     def __init__(self, trials_dir, recreate=False, exp_key=None, refresh=True):
         self._trials_file = os.path.join(trials_dir, self.STORAGE_NAME)
+        self._attachments_file = os.path.join(trials_dir, self.ATTACHMENTS_NAME)
         if recreate and os.path.isfile(self._trials_file):
             os.unlink(self._trials_file)
         super(PersistentTrials, self).__init__(exp_key=exp_key, refresh=False)
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()
+        self.attachments = self._load_attachments()
         if refresh:
             self.refresh()
+
+    def _load_attachments(self):
+        if os.path.isfile(self._attachments_file):
+            with open(self._attachments_file, "rb") as attachments_file:
+                return load(attachments_file)
+        else:
+            # Don't throw any trials away
+            return self.attachments
+
+    def _store_attachments(self):
+        with open(self._attachments_file, "wb") as attachments_file:
+            dump(self.attachments, attachments_file)
+
 
     def _load_trials(self):
         if os.path.isfile(self._trials_file):
@@ -87,6 +108,7 @@ class PersistentTrials(Trials):
     def refresh(self):
         # Store the trials
         self._store_trials()
+        self._store_attachments()
 
         # and refresh the real trials
         super(PersistentTrials, self).refresh()
@@ -95,6 +117,7 @@ class PersistentTrials(Trials):
         # Remove the stored file
         try:
             os.unlink(self._trials_file)
+            os.unlink(self._attachments_file)
         except (IOError, OSError):
             pass
         # and restore the state of the trials object
@@ -172,7 +195,7 @@ class PersistentTrials(Trials):
         # Do one minimization step and yield the result
         for trial in self._evaluate(domain=domain, evaluations=evaluations, pass_=pass_):
             # yield the result
-            yield Trial(trial)
+            yield Trial(trial, self.trial_attachments(trial))
         # Refresh the trials to persist the changes
         self.refresh()
 
@@ -183,15 +206,15 @@ class PersistentTrials(Trials):
     @property
     def best_trial(self):
         best_trial = super(PersistentTrials, self).best_trial
-        return Trial(best_trial)
+        return Trial(best_trial, self.trial_attachments(best_trial))
 
     @property
     def num_finished(self):
         return self.count_by_state_unsynced(JOB_STATE_DONE)
 
     def __getitem__(self, index):
-        return Trial(self._dynamic_trials[index])
+        return Trial(self._dynamic_trials[index], self.trial_attachments(self._dynamic_trials[index]))
 
     def __iter__(self):
         for trial in self._dynamic_trials:
-            yield Trial(trial)
+            yield Trial(trial, self.trial_attachments(trial))

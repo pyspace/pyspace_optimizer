@@ -79,6 +79,8 @@ def optimize_pipeline(task, pipeline, backend, queue):
     try:
         # Create the trials object loading the persistent trials
         trials = PersistentTrials(trials_dir=pipeline.base_result_dir, recreate=task.get("restart_evaluation", False))
+        # Store the pipeline as an attachment to the trials
+        trials.attachments["pipeline"] = pipeline
 
         # Do the evaluation
         for pass_ in range(1, passes + 1):

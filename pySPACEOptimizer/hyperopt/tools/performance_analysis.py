@@ -28,7 +28,7 @@ class NoValidExperiment(Exception):
 class PipelineList(QtGui.QListWidget):
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
-        self.addItems([pipeline.replace("_", "-") for pipeline in pipelines])
+        self.addItems([pipeline.replace("_", "-") for pipeline in pipelines.keys()])
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
@@ -72,7 +72,7 @@ class PipelineGraph(QtGui.QWidget):
         vbox.addWidget(nav_bar_container)
         self.setLayout(vbox)
 
-        self.__artists = {pipeline: None for pipeline in pipelines}
+        self.__artists = {pipeline: None for pipeline in pipelines.keys()}
         self.__selected_pipeline = None
         self.__mouse_artist = None
         self.__trial_artist = None
@@ -185,7 +185,7 @@ class PipelineGraph(QtGui.QWidget):
 
 
 class PipelineTable(QtGui.QTableWidget):
-    def __init__(self, trials, row_selection_callback=None, parent=None):
+    def __init__(self, pipelines, trials, row_selection_callback=None, parent=None):
         super(PipelineTable, self).__init__(parent)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.MinimumExpanding)
         self.setMaximumHeight(300)
@@ -195,6 +195,7 @@ class PipelineTable(QtGui.QTableWidget):
         self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.__trials = trials
+        self.__pipelines = pipelines
         self.__row_selection_callback = row_selection_callback
         # noinspection PyUnresolvedReferences
         self.itemSelectionChanged.connect(self.selection_changed)
@@ -208,17 +209,28 @@ class PipelineTable(QtGui.QTableWidget):
 
     def display(self, pipeline):
         self.clear()
-        number_of_parameters = len(self.__trials[pipeline][0]["misc"]["vals"])
-        self.setColumnCount(number_of_parameters + 1)
-        self.setHorizontalHeaderLabels(["Loss"] + self.__trials[pipeline][0]["misc"]["vals"].keys())
         if pipeline in self.__trials:
-            for trial in self.__trials[pipeline]:
-                if trial.id >= self.rowCount():
-                    self.insertRow(trial.id)
-                self.setItem(trial.id, 0, QtGui.QTableWidgetItem("{loss:.3f}".format(loss=trial.loss)))
-                for i, value in enumerate(trial["misc"]["vals"].values(), 1):
-                    self.setItem(trial.id, i, QtGui.QTableWidgetItem("{parameter!s}".format(parameter=value[0])))
-                self.resizeRowToContents(trial.id)
+            if self.__trials[pipeline]:
+                pipeline_obj = self.__pipelines[pipeline]
+                if pipeline_obj is not None:
+                    parameter_names = self.__trials[pipeline][0].parameters(pipeline_obj).keys()
+                else:
+                    parameter_names = self.__trials[pipeline][0]["misc"]["vals"].keys()
+
+                self.setColumnCount(len(parameter_names) + 1)
+                self.setHorizontalHeaderLabels(["Loss"] + parameter_names)
+                for trial in self.__trials[pipeline]:
+                    if trial.id >= self.rowCount():
+                        self.insertRow(trial.id)
+                    self.setItem(trial.id, 0, QtGui.QTableWidgetItem("{loss:.3f}".format(loss=trial.loss)))
+                    if pipeline_obj is not None:
+                        parameters = trial.parameters(pipeline_obj)
+                    else:
+                        parameters = {key: value[0] for key, value in trial["misc"]["vals"].items()}
+                    for i, parameter in enumerate(parameter_names, 1):
+                        self.setItem(trial.id, i, QtGui.QTableWidgetItem("{parameter!s}".format(
+                            parameter=parameters[parameter])))
+                self.resizeRowsToContents()
 
     def select_trial(self, tid):
         if 0 <= tid < self.rowCount():
@@ -230,18 +242,20 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         super(PerformanceAnalysisWidget, self).__init__(parent)
         self.__experiment = experiment
         # Search for the pipelines
-        self.__pipelines = []
+        self.__pipelines = {}
         self.__trials = {}
         if experiment is not None and os.path.isdir(experiment):
             for element in os.listdir(experiment):
                 if os.path.isdir(os.path.join(experiment, element)):
-                    self.__pipelines.append(element)
                     self.__trials[element] = PersistentTrials(os.path.join(self.__experiment, element), recreate=False)
+                    self.__pipelines[element] = self.__trials[element].attachments.get("pipeline", None)
 
         # Create the widgets
-        self.__list_view = PipelineList(self.__pipelines, self._change_pipeline, self)
-        self.__graph_view = PipelineGraph(self.__pipelines, self.__trials, pick_callback=self._pick_trial, parent=self)
-        self.__table_view = PipelineTable(self.__trials, self._select_trial, parent=self)
+        self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipeline, parent=self)
+        self.__graph_view = PipelineGraph(pipelines=self.__pipelines, trials=self.__trials,
+                                          pick_callback=self._pick_trial, parent=self)
+        self.__table_view = PipelineTable(pipelines=self.__pipelines, trials=self.__trials,
+                                          row_selection_callback=self._select_trial, parent=self)
         right_widget = QtGui.QWidget()
 
         # Layout the widgets
