@@ -21,7 +21,6 @@ class NodeParameterSpace(object):
         self.class_ = nodes.DEFAULT_NODE_MAPPING[node_name]
         self.name = node_name
         self.__parameters = None
-        self.__optimization_parameters = None
         self._values = set()
         for parameter, values in task.default_parameters(self).iteritems():
             if isinstance(values, dict):
@@ -42,12 +41,9 @@ class NodeParameterSpace(object):
             for class_ in inspect.getmro(self.class_):
                 if class_ != object and hasattr(class_, "__init__"):
                     argspec = inspect.getargspec(class_.__init__)
-                    if argspec.defaults is not None:
-                        default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
-                        self.__parameters.update([arg for arg, default in default_args
-                                                  if arg != "self" and
-                                                  arg.lower().find("debug") == -1 and
-                                                  arg.lower().find("warn") == -1])
+                    self.__parameters.update([arg for arg in argspec.args if arg != "self" and
+                                              arg.lower().find("debug") == -1 and
+                                              arg.lower().find("warn") == -1])
         return self.__parameters
 
     def parameter_space(self):
