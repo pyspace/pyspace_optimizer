@@ -1,8 +1,10 @@
 # noinspection PyPackageRequirements
 import matplotlib
 import os
+import yaml
+import pySPACE
 # noinspection PyPackageRequirements
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from argparse import ArgumentParser
 
 # Use the Qt-Backend
@@ -92,16 +94,12 @@ class PipelineGraph(QtGui.QWidget):
             number_of_points = 0
             self.__averages[pipeline] = []
             self.__tids[pipeline] = []
-            trials = [None] * len(self.__trials[pipeline])
             for trial in self.__trials[pipeline]:
-                trials[trial.id] = trial
-
-            for trial in trials:
                 if trial.loss < float("inf"):
                     mean += trial.loss
                     number_of_points += 1
                 if trial.id >= self.__average:
-                    last_loss = trials[trial.id - self.__average].loss
+                    last_loss = self.__trials[pipeline][trial.id - self.__average].loss
                     if last_loss < float("inf"):
                         mean -= last_loss
                         number_of_points -= 1
@@ -144,7 +142,7 @@ class PipelineGraph(QtGui.QWidget):
             if p == pipeline:
                 artist.set_alpha(1)
             else:
-                artist.set_alpha(0.1)
+                artist.set_alpha(0.05)
         if pipeline is not None:
             # Register for the mouse move event
             self.__mouse_id = self.__canvas.mpl_connect("motion_notify_event", self._move_mouse)
@@ -199,9 +197,35 @@ class PipelineTable(QtGui.QTableWidget):
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.__trials = trials
         self.__pipelines = pipelines
+        self.__selected_pipeline = None
         self.__row_selection_callback = row_selection_callback
+        self.__save_error = QtGui.QMessageBox()
+        self.__save_error.setIcon(QtGui.QMessageBox.Critical)
+        self.__save_error.setWindowTitle("Error saving the YAML")
+        self.__save_error.setText("YAML can't be saved.")
+        self.__save_error.setInformativeText(self.tr("Error: The pipeline is missing from the experiment."
+                                               "Therefore no trial can be saved"))
         # noinspection PyUnresolvedReferences
         self.itemSelectionChanged.connect(self.selection_changed)
+
+    def save_trial(self):
+        pipeline = self.__pipelines[self.__selected_pipeline]
+        if pipeline is not None:
+            # Open a file dialog and get the filename to save the result to
+            file_name = QtGui.QFileDialog.getSaveFileName(self, self.tr("Save YAML as..."), pySPACE.configuration.spec_dir,
+                                                          self.tr("YAML Files (*.yaml);;All files (*)"))
+            if file_name:
+                if not file_name.split("."):
+                    file_name = file_name + ".yaml"
+                trial = self.__trials[self.__selected_pipeline][self.selectedItems()[0].row()]
+                operation_spec = pipeline.operation_spec(trial.parameters(pipeline))
+                if "base_file" in operation_spec:
+                    del operation_spec["base_file"]
+                with open(file_name, "wb") as save_file:
+                    yaml.safe_dump(data=operation_spec, stream=save_file, default_flow_style=False, indent=4)
+        else:
+            self.__save_error.show()
+
 
     def selection_changed(self):
         if self.__row_selection_callback is not None:
@@ -212,8 +236,17 @@ class PipelineTable(QtGui.QTableWidget):
 
     def display(self, pipeline):
         self.clear()
+        if self.contextMenuPolicy() != QtCore.Qt.ActionsContextMenu:
+            # Add the "save" action
+            self.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
+            save = QtGui.QAction("Save as YAML", self)
+            # noinspection PyUnresolvedReferences
+            save.triggered.connect(self.save_trial)
+            self.addAction(save)
+
         if pipeline in self.__trials:
             if self.__trials[pipeline]:
+                self.__selected_pipeline = pipeline
                 pipeline_obj = self.__pipelines[pipeline]
                 if pipeline_obj is not None:
                     parameter_names = self.__trials[pipeline][0].parameters(pipeline_obj).keys()
@@ -293,13 +326,45 @@ class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
     def __init__(self, experiment=None, parent=None):
         super(PerformanceAnalysisMainWindow, self).__init__(parent)
         self.resize(1024, 768)
-        self.setWindowTitle("Optimizer performance analysis")
+        self.setWindowTitle(self.tr("Optimizer performance analysis"))
+        self._init_menu_and_status_bar()
         self.__central_widget = PerformanceAnalysisWidget(experiment, self)
         self.setCentralWidget(self.__central_widget)
+
+    def _init_menu_and_status_bar(self):
+        self.statusBar()
+        open_action = QtGui.QAction(self.tr("&Open"), self)
+        open_action.setShortcut("Alt+O")
+        open_action.setStatusTip(self.tr("Open a new experiment"))
+        # noinspection PyUnresolvedReferences
+        open_action.triggered.connect(self._open_experiment)
+
+        exit_action = QtGui.QAction(self.tr("&Exit"), self)
+        exit_action.setShortcut("Ctrl+Q")
+        exit_action.setStatusTip(self.tr("Exit the application"))
+        # noinspection PyUnresolvedReferences
+        exit_action.triggered.connect(QtGui.qApp.quit)
+
+        menuBar = self.menuBar()
+        file_menu = menuBar.addMenu(self.tr("&File"))
+        file_menu.addAction(open_action)
+        file_menu.addSeparator()
+        file_menu.addAction(exit_action)
+
+
+    def _open_experiment(self):
+        experiment = unicode(QtGui.QFileDialog.getExistingDirectory(self, self.tr("Select experiment"),
+                                                            pySPACE.configuration.storage))
+        if experiment:
+            # Replace the central widget
+            del self.__central_widget
+            self.__central_widget = PerformanceAnalysisWidget(experiment=experiment, parent=self)
+            self.setCentralWidget(self.__central_widget)
 
 
 def create_parser():
     arg_parser = ArgumentParser(prog=__file__)
+    arg_parser.add_argument("-c", "--config", type=str, default=None, help="The pySPACE configuration to use")
     arg_parser.add_argument("-e", "--experiment", type=str, default=None,
                             help="The path to the experiment results to analyse")
     return arg_parser
@@ -309,6 +374,8 @@ if __name__ == "__main__":
     import sys
     parser = create_parser()
     arguments, unknown_args = parser.parse_known_args(sys.argv[1:])
+    if arguments.config:
+        pySPACE.load_configuration(conf_file_name=arguments.config)
     app = QtGui.QApplication(unknown_args)
     main = PerformanceAnalysisMainWindow(experiment=arguments.experiment)
     main.show()
