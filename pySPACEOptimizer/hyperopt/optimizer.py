@@ -75,6 +75,8 @@ def optimize_pipeline(task, pipeline, backend, queue):
     # Get the number of evaluations to do in one pass
     evaluations = task["evaluations_per_pass"]
     passes = task["passes"]
+    max_loss = task["max_loss"]
+    check_after = task["check_after"]
 
     try:
         # Create the trials object loading the persistent trials
@@ -83,6 +85,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
         trials.attachments["pipeline"] = pipeline
 
         # Do the evaluation
+        best_loss = float("inf")
         for pass_ in range(1, passes + 1):
             pipeline.logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
             # Create a progress bar
@@ -96,6 +99,12 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
                 progress_bar.update(progress_bar.currval + 1)
+                if trial.loss < best_loss:
+                    best_loss = trial.loss
+                if evaluations * pass_ >= check_after and best_loss > max_loss:
+                    pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
+                                         (max_loss, check_after))
+                    break
     except IOError:
         pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
 

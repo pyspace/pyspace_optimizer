@@ -40,7 +40,7 @@ class Task(dict):
     def __init__(self, name, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
                  max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
-                 parameter_ranges=None, window_size=None, **kwargs):
+                 parameter_ranges=None, window_size=None, max_loss=float("inf"), check_after=100, **kwargs):
 
         self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
 
@@ -86,7 +86,9 @@ class Task(dict):
             "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
             "max_eval_time": max_eval_time,
             "window_size": window_size,
-            "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name)
+            "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name),
+            "max_loss": max_loss,
+            "check_after": check_after,
         })
         super(Task, self).update(kwargs)
 
@@ -151,9 +153,7 @@ class Task(dict):
                 nodes[self["source_node"]] = DEFAULT_NODE_MAPPING[self["source_node"]]
             elif self["source_node"] is None:
                 # Append all source nodes
-                nodes.update({
-                                 node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if is_source_node(node)
-                                 })
+                nodes.update({node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if is_source_node(node)})
         else:
             nodes = {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if self.__valid_node(node)}
 
