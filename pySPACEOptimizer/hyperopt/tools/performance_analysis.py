@@ -204,7 +204,7 @@ class PipelineTable(QtGui.QTableWidget):
         self.__save_error.setWindowTitle("Error saving the YAML")
         self.__save_error.setText("YAML can't be saved.")
         self.__save_error.setInformativeText(self.tr("Error: The pipeline is missing from the experiment."
-                                               "Therefore no trial can be saved"))
+                                                     "Therefore no trial can be saved"))
         # noinspection PyUnresolvedReferences
         self.itemSelectionChanged.connect(self.selection_changed)
 
@@ -212,18 +212,19 @@ class PipelineTable(QtGui.QTableWidget):
         pipeline = self.__pipelines[self.__selected_pipeline]
         if pipeline is not None:
             # Open a file dialog and get the filename to save the result to
-            file_name = QtGui.QFileDialog.getSaveFileName(self, self.tr("Save YAML as..."), pySPACE.configuration.spec_dir,
+            # noinspection PyCallByClass,PyTypeChecker
+            file_name = QtGui.QFileDialog.getSaveFileName(self, self.tr("Save YAML as..."),
+                                                          pySPACE.configuration.spec_dir,
                                                           self.tr("YAML Files (*.yaml);;All files (*)"))
             if file_name:
                 if not file_name.split("."):
-                    file_name = file_name + ".yaml"
+                    file_name += ".yaml"
                 trial = self.__trials[self.__selected_pipeline][self.selectedItems()[0].row()]
                 operation_spec = pipeline.operation_spec(trial.parameters(pipeline))
                 with open(file_name, "wb") as save_file:
                     save_file.write(operation_spec["base_file"])
         else:
             self.__save_error.show()
-
 
     def selection_changed(self):
         if self.__row_selection_callback is not None:
@@ -343,16 +344,16 @@ class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
         # noinspection PyUnresolvedReferences
         exit_action.triggered.connect(QtGui.qApp.quit)
 
-        menuBar = self.menuBar()
-        file_menu = menuBar.addMenu(self.tr("&File"))
+        menu_bar = self.menuBar()
+        file_menu = menu_bar.addMenu(self.tr("&File"))
         file_menu.addAction(open_action)
         file_menu.addSeparator()
         file_menu.addAction(exit_action)
 
-
     def _open_experiment(self):
+        # noinspection PyTypeChecker,PyCallByClass
         experiment = unicode(QtGui.QFileDialog.getExistingDirectory(self, self.tr("Select experiment"),
-                                                            pySPACE.configuration.storage))
+                                                                    pySPACE.configuration.storage))
         if experiment:
             # Replace the central widget
             del self.__central_widget
