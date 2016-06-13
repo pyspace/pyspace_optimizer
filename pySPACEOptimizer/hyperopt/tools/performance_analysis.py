@@ -1,7 +1,7 @@
 # noinspection PyPackageRequirements
 import matplotlib
 import os
-import yaml
+
 import pySPACE
 # noinspection PyPackageRequirements
 from PyQt4 import QtGui, QtCore
@@ -219,10 +219,8 @@ class PipelineTable(QtGui.QTableWidget):
                     file_name = file_name + ".yaml"
                 trial = self.__trials[self.__selected_pipeline][self.selectedItems()[0].row()]
                 operation_spec = pipeline.operation_spec(trial.parameters(pipeline))
-                if "base_file" in operation_spec:
-                    del operation_spec["base_file"]
                 with open(file_name, "wb") as save_file:
-                    yaml.safe_dump(data=operation_spec, stream=save_file, default_flow_style=False, indent=4)
+                    save_file.write(operation_spec["base_file"])
         else:
             self.__save_error.show()
 
