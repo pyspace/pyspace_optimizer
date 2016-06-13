@@ -48,7 +48,7 @@ try:
                                 self.__number_of_points[pipeline] += 1
 
                             if i >= self.__window_size:
-                                last_loss = trials[i - self.__window_size + 1]
+                                last_loss = trials[i - self.__window_size]
                                 if last_loss < float("inf"):
                                     self.__means[pipeline] -= last_loss
                                     self.__number_of_points[pipeline] -= 1
@@ -91,14 +91,12 @@ try:
 
         def run(self):
             while not self.__stopped.isSet():
-                # Update the performance graphic
-                self.__update()
                 # Wait one minute
                 self.__stopped.wait(timeout=60)
+                # Update the performance graphic
+                self.__update()
 
         def stop(self):
-            # Update the performance graphic
-            self.__update()
             self.__stopped.set()
 
 except ImportError:
