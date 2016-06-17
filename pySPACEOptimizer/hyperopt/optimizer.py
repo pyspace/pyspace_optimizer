@@ -124,13 +124,15 @@ class HyperoptOptimizer(PySPACEOptimizer):
                 results.append(pool.apply_async(func=optimize_pipeline,
                                                 args=(self._task, node_chain, self._backend, self.queue)))
             self.logger.debug("Done generating pipelines")
-
             # close the pool
             pool.close()
             # Wait for the pipelines to finish
+            self.logger.info("Waiting for the processes to finish")
             pool.join()
             # check the results
+            self.logger.info("Checking the results of the processes")
             for result in results:
+                self.logger.debug(result.successful())
                 if not result.successful():
                     try:
                         result.get()
