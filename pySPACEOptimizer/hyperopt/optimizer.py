@@ -92,9 +92,11 @@ def optimize_pipeline(task, pipeline, backend, queue):
             progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
                                        maxval=evaluations,
                                        fd=FileLikeLogger(logger=pipeline.logger, log_level=logging.INFO))
+            pipeline.logger.debug("Minimizing the pipeline")
             for trial in trials.minimize(fn=__minimize, space=((pipeline, backend), pipeline.pipeline_space),
                                          algo=suggestion_algorithm, evaluations=evaluations, pass_=pass_,
                                          rseed=int(time.time())):
+                pipeline.logger.debug("Trial: {trial.id} / Loss: {trial.loss}".format(trial=trial))
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
@@ -105,7 +107,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                     pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                          (max_loss, check_after))
                     break
-    except IOError:
+    except Exception:
         pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
 
 
@@ -134,10 +136,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
             for result in results:
                 self.logger.debug(result.successful())
                 if not result.successful():
-                    try:
-                        result.get()
-                    except Exception, e:
-                        self.logger.error(str(e))
+                    # This raises an exception
+                    result.get()
         except Exception:
             self.logger.exception("Error doing optimization. Giving up!")
             pool.terminate()
