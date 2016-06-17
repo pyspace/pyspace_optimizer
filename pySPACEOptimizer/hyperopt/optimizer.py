@@ -120,12 +120,13 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def _do_optimization(self, pool):
         try:
             results = []
-            self.logger.debug("Generating pipelines")
+            self.logger.info("Starting processes")
             for node_chain in self._generate_node_chain_parameter_spaces():
+                self.logger.debug("Enqueuing node chain '%s'" % node_chain)
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
                                                 args=(self._task, node_chain, self._backend, self.queue)))
-            self.logger.debug("Done generating pipelines")
+            self.logger.debug("Done starting processes")
             # close the pool
             pool.close()
             # Wait for the pipelines to finish
@@ -134,10 +135,8 @@ class HyperoptOptimizer(PySPACEOptimizer):
             # check the results
             self.logger.info("Checking the results of the processes")
             for result in results:
-                self.logger.debug(result.successful())
-                if not result.successful():
-                    # This raises an exception
-                    result.get()
+                self.logger.debug("Successful: %s" % result.successful())
+                self.logger.debug("Result: %s" % result.get())
         except Exception:
             self.logger.exception("Error doing optimization. Giving up!")
             pool.terminate()
