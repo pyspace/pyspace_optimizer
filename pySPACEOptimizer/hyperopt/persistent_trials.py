@@ -39,7 +39,11 @@ class Trial(object):
                 else:
                     new_parameters[key] = value
             else:
-                pipeline.logger.warn("Parameter '%s' was not found in the parameter space - skipping" % key)
+                try:
+                    pipeline.logger.warn("Parameter '%s' was not found in the parameter space - skipping" % key)
+                except IOError:
+                    # Maybe we can't log. Ignore
+                    pass
         return new_parameters
 
     @property
@@ -93,7 +97,6 @@ class PersistentTrials(Trials):
     def _store_attachments(self):
         with open(self._attachments_file, "wb") as attachments_file:
             dump(self.attachments, attachments_file)
-
 
     def _load_trials(self):
         if os.path.isfile(self._trials_file):

@@ -124,6 +124,7 @@ class PySPACEOptimizer(object):
                 self.logger.debug("Testing NodeChainParameterSpace: %s", node_list)
                 pipeline = NodeChainParameterSpace(configuration=self._task,
                                                    node_list=[self._create_node(node) for node in node_list])
+                pipeline.log_pipeline()
                 self.__pipelines.append(pipeline)
                 self.__queue_reader.set_number_of_pipelines(len(self.__pipelines))
                 yield pipeline

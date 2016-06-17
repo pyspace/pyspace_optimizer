@@ -46,6 +46,8 @@ class NodeChainParameterSpace(object):
         # Create the pipeline dir
         if not os.path.isdir(self.base_result_dir):
             os.makedirs(self.base_result_dir)
+
+    def log_pipeline(self):
         # Log the pipeline
         self.logger.info("{object!s} is {object!r}".format(object=self))
 

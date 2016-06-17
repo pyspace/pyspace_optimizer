@@ -142,7 +142,7 @@ class PipelineGraph(QtGui.QWidget):
             if p == pipeline:
                 artist.set_alpha(1)
             else:
-                artist.set_alpha(0.05)
+                artist.set_alpha(0.1)
         if pipeline is not None:
             # Register for the mouse move event
             self.__mouse_id = self.__canvas.mpl_connect("motion_notify_event", self._move_mouse)
