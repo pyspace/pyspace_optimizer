@@ -132,7 +132,10 @@ class HyperoptOptimizer(PySPACEOptimizer):
             # check the results
             for result in results:
                 if not result.successful():
-                    self.logger.error(result.get())
+                    try:
+                        result.get()
+                    except Exception, e:
+                        self.logger.error(str(e))
         except Exception:
             self.logger.exception("Error doing optimization. Giving up!")
             pool.terminate()

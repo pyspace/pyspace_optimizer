@@ -3,7 +3,7 @@ import inspect
 
 from pySPACE.missions import nodes
 from pySPACE.missions.nodes.decorators import PARAMETER_ATTRIBUTE, PARAMETER_TYPES, ChoiceParameter, NormalParameter, \
-    QNormalParameter, BooleanParameter, NoOptimizationParameter
+    QNormalParameter, BooleanParameter, NoOptimizationParameter, ParameterDecorator
 
 
 class NodeParameterSpace(object):
@@ -55,7 +55,7 @@ class NodeParameterSpace(object):
         only the default values are used as the space of the parameters.
 
         :return: A dictionary containing all parameters and their default values.
-        :rtype: dict[str, object]
+        :rtype: dict[str, ParameterDecorator]
         """
         space = copy.deepcopy(getattr(self.class_, PARAMETER_ATTRIBUTE, set()))
         # If no optimization parameters have been defined
@@ -67,7 +67,8 @@ class NodeParameterSpace(object):
                     if argspec.defaults is not None:
                         default_args = zip(argspec.args[-len(argspec.defaults):], argspec.defaults)
                         for param, default in default_args:
-                            if param != "self" and param.lower().find("debug") == -1 and param.lower().find("warn") == -1:
+                            if all([value not in param.lower() for value in ["self", "debug", "warn"]]) and \
+                                            param not in space:
                                 if isinstance(default, bool):
                                     # Add a boolean choice
                                     space.add(BooleanParameter(param))
@@ -103,6 +104,7 @@ class NodeParameterSpace(object):
             for parameter in self.parameters:
                 parameter_name = self._make_parameter_name(parameter)
                 if parameter_name in space:
+                    # noinspection PyUnresolvedReferences
                     result["parameters"][parameter] = "${{{name}}}".format(name=parameter_name)
         return result
 
