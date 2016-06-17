@@ -32,12 +32,14 @@ class Trial(object):
         new_parameters = copy.copy(parameters)
         for node in pipeline.nodes:
             new_pipeline_space.update(NodeParameterSpace.parameter_space(node))
-
         for key, value in parameters.items():
-            if isinstance(new_pipeline_space[key], ChoiceParameter):
-                new_parameters[key] = new_pipeline_space[key].choices[value]
+            if key in new_pipeline_space:
+                if isinstance(new_pipeline_space[key], ChoiceParameter):
+                    new_parameters[key] = new_pipeline_space[key].choices[value]
+                else:
+                    new_parameters[key] = value
             else:
-                new_parameters[key] = value
+                pipeline.logger.warn("Parameter '%s' was not found in the parameter space - skipping" % key)
         return new_parameters
 
     @property
