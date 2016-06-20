@@ -104,7 +104,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 if evaluations * pass_ >= check_after and best_loss > max_loss:
                     pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                          (max_loss, check_after))
-                    break
+                    return
     except:
         pipeline.logger.exception("Error optimizing NodeChainParameterSpace:")
 
