@@ -105,8 +105,8 @@ def optimize_pipeline(task, pipeline, backend, queue):
                     pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                          (max_loss, check_after))
                     break
-    except Exception:
-        pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
+    except:
+        pipeline.logger.exception("Error optimizing NodeChainParameterSpace:")
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
