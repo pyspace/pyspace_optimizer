@@ -238,6 +238,8 @@ class Task(dict):
             result["class_labels"] = [self["class_labels"]]
         if "erp_class_label" in node.parameters:
             result["erp_class_label"] = [self["main_class"]]
+        if "metric" in node.parameters:
+            result["metric"] = [self["metric"]]
         return result
 
     @property
