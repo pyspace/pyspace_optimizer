@@ -56,8 +56,6 @@ def __minimize(spec):
         pipeline.logger.exception("Error minimizing the pipeline:")
         loss = float("inf")
         status = STATUS_FAIL
-
-    pipeline.logger.debug("Loss: {loss:.3f}".format(loss=loss))
     return {
         "loss": loss,
         "status": status,
