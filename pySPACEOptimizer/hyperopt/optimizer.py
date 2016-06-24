@@ -53,11 +53,9 @@ def __minimize(spec):
         except OSError as e:
             pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
     except Exception:
-        pipeline.logger.exception("Error minimizing the pipeline:")
+        pipeline.error_logger.exception("Error minimizing the pipeline:")
         loss = float("inf")
         status = STATUS_FAIL
-
-    pipeline.logger.debug("Loss: {loss:.3f}".format(loss=loss))
     return {
         "loss": loss,
         "status": status,
@@ -84,6 +82,9 @@ def optimize_pipeline(task, pipeline, backend, queue):
         # Store the pipeline as an attachment to the trials
         trials.attachments["pipeline"] = pipeline
 
+        # Log the pipeline
+        pipeline.log_pipeline()
+
         # Do the evaluation
         best_loss = float("inf")
         for pass_ in range(1, passes + 1):
@@ -92,9 +93,11 @@ def optimize_pipeline(task, pipeline, backend, queue):
             progress_bar = ProgressBar(widgets=['Progress: ', Percentage(), ' ', Bar()],
                                        maxval=evaluations,
                                        fd=FileLikeLogger(logger=pipeline.logger, log_level=logging.INFO))
+            pipeline.logger.debug("Minimizing the pipeline")
             for trial in trials.minimize(fn=__minimize, space=((pipeline, backend), pipeline.pipeline_space),
                                          algo=suggestion_algorithm, evaluations=evaluations, pass_=pass_,
                                          rseed=int(time.time())):
+                pipeline.logger.debug("Trial: {trial.id} / Loss: {trial.loss}".format(trial=trial))
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
@@ -104,9 +107,14 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 if evaluations * pass_ >= check_after and best_loss > max_loss:
                     pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                          (max_loss, check_after))
-                    break
-    except IOError:
-        pipeline.error_logger.exception("Error optimizing NodeChainParameterSpace:")
+                    parameters = trial.parameters(pipeline)
+                    for id in range(evaluations * passes - (evaluations * pass_)):
+                        # Put inf loss to queue for every remaining evaluation
+                        queue.put((id, float("inf"), pipeline, parameters))
+                    # Then return to break the evaluation
+                    return
+    except:
+        pipeline.logger.exception("Error optimizing NodeChainParameterSpace:")
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
@@ -118,21 +126,23 @@ class HyperoptOptimizer(PySPACEOptimizer):
     def _do_optimization(self, pool):
         try:
             results = []
-            self.logger.debug("Generating pipelines")
+            self.logger.info("Starting processes")
             for node_chain in self._generate_node_chain_parameter_spaces():
+                self.logger.debug("Enqueuing node chain '%s'" % node_chain)
                 # Enqueue the evaluations and save the results
                 results.append(pool.apply_async(func=optimize_pipeline,
                                                 args=(self._task, node_chain, self._backend, self.queue)))
-            self.logger.debug("Done generating pipelines")
-
+            self.logger.debug("Done starting processes")
             # close the pool
             pool.close()
             # Wait for the pipelines to finish
+            self.logger.info("Waiting for the processes to finish")
             pool.join()
             # check the results
+            self.logger.info("Checking the results of the processes")
             for result in results:
-                if not result.successful():
-                    self.logger.error(result.get())
+                self.logger.debug("Successful: %s" % result.successful())
+                self.logger.debug("Result: %s" % result.get())
         except Exception:
             self.logger.exception("Error doing optimization. Giving up!")
             pool.terminate()
@@ -140,7 +150,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def optimize(self):
         self.logger.debug("Creating optimization pool")
-        pool = OptimizerPool()
+        pool = OptimizerPool(processes=self._task["max_parallel_pipelines"])
         return self._do_optimization(pool)
 
     def _create_node(self, node_name):

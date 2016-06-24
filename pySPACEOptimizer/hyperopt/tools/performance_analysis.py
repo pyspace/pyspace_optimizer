@@ -182,7 +182,7 @@ class PipelineGraph(QtGui.QWidget):
             if p in self.__selected_pipelines:
                 artist.set_alpha(1)
             else:
-                artist.set_alpha(0.05)
+                artist.set_alpha(0.1)
         if len(self.__selected_pipelines) == 1:
             # Register for the mouse move event
             self.__mouse_id = self.__canvas.mpl_connect("motion_notify_event", self._move_mouse)

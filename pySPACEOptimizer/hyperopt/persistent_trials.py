@@ -32,12 +32,18 @@ class Trial(object):
         new_parameters = copy.copy(parameters)
         for node in pipeline.nodes:
             new_pipeline_space.update(NodeParameterSpace.parameter_space(node))
-
         for key, value in parameters.items():
-            if isinstance(new_pipeline_space[key], ChoiceParameter):
-                new_parameters[key] = new_pipeline_space[key].choices[value]
+            if key in new_pipeline_space:
+                if isinstance(new_pipeline_space[key], ChoiceParameter):
+                    new_parameters[key] = new_pipeline_space[key].choices[value]
+                else:
+                    new_parameters[key] = value
             else:
-                new_parameters[key] = value
+                try:
+                    pipeline.logger.warn("Parameter '%s' was not found in the parameter space - skipping" % key)
+                except IOError:
+                    # Maybe we can't log. Ignore
+                    pass
         return new_parameters
 
     @property
@@ -91,7 +97,6 @@ class PersistentTrials(Trials):
     def _store_attachments(self):
         with open(self._attachments_file, "wb") as attachments_file:
             dump(self.attachments, attachments_file)
-
 
     def _load_trials(self):
         if os.path.isfile(self._trials_file):

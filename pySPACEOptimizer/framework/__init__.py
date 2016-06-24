@@ -1,11 +1,5 @@
 import pkg_resources
 
-import yaml
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-
 
 TASK_ENTRY_POINT = "pySPACEOptimizer.tasks"
 OPTIMIZER_ENTRY_POINT = "pySPACEOptimizer.optimizers"
@@ -15,6 +9,11 @@ def task_from_yaml(stream):
     """
     :rtype: T <= Task
     """
+    import yaml
+    try:
+        from yaml import CLoader as Loader
+    except ImportError:
+        from yaml import Loader
     description = yaml.load(stream, Loader=Loader)
     return task_factory(description)
 

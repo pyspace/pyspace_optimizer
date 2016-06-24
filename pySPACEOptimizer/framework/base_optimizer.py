@@ -81,7 +81,7 @@ class PySPACEOptimizer(object):
             self.__best_result_file = best_result_file
         else:
             self.__best_result_file = "%s_best.yaml" % task["data_set_path"]
-        self.__logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
+        self.__logger = logging.getLogger("pySPACEOptimizer.optimizer.{optimizer}".format(optimizer=self))
         self.__pipelines = []
         self.__queue = Manager().Queue()
         self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"],
