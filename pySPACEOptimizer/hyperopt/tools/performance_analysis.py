@@ -1,6 +1,7 @@
 # noinspection PyPackageRequirements
 import matplotlib
 import os
+from collections import defaultdict
 
 import pySPACE
 # noinspection PyPackageRequirements
@@ -28,12 +29,13 @@ class NoValidExperiment(Exception):
 
 
 class PipelineList(QtGui.QListWidget):
+    # noinspection PyUnresolvedReferences
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
         self.addItems([pipeline.replace("_", "-") for pipeline in pipelines.keys()])
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
-        self.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        self.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
         self.setMaximumWidth(200)
         self.__callback = callback
         # noinspection PyUnresolvedReferences
@@ -41,7 +43,7 @@ class PipelineList(QtGui.QListWidget):
 
     def selection_changed(self):
         if self.__callback is not None:
-            self.__callback(unicode(self.selectedItems()[0].text().replace("-", "_")))
+            self.__callback([unicode(item.text().replace("-", "_")) for item in self.selectedItems()])
 
 
 class PipelineGraph(QtGui.QWidget):
@@ -75,25 +77,27 @@ class PipelineGraph(QtGui.QWidget):
         self.setLayout(vbox)
 
         self.__artists = {pipeline: None for pipeline in pipelines.keys()}
-        self.__selected_pipeline = None
+        self.__selected_pipelines = self.__artists.keys()
         self.__mouse_artist = None
         self.__trial_artist = None
+        self.__best_artist = None
+        self.__best_annotation = None
+        self.__averages = None
         self.__average = average
         self.__trials = trials
-        self.__tids = {}
-        self.__averages = {}
         self.__pick_callback = pick_callback
         self.__mouse_id = None
         self.__mouse_x = None
         self.__pick_id = None
         self._calculate_plots()
+        self._calculate_best()
 
     def _calculate_plots(self):
+        self.__averages = defaultdict(lambda: [])
+        tids = defaultdict(lambda: [])
         for pipeline in self.__artists.keys():
             mean = 0
             number_of_points = 0
-            self.__averages[pipeline] = []
-            self.__tids[pipeline] = []
             for trial in self.__trials[pipeline]:
                 if trial.loss < float("inf"):
                     mean += trial.loss
@@ -103,7 +107,7 @@ class PipelineGraph(QtGui.QWidget):
                     if last_loss < float("inf"):
                         mean -= last_loss
                         number_of_points -= 1
-                    self.__tids[pipeline].append(trial.id)
+                    tids[pipeline].append(trial.id)
                     if number_of_points > 0:
                         self.__averages[pipeline].append(mean / number_of_points)
                     else:
@@ -111,10 +115,43 @@ class PipelineGraph(QtGui.QWidget):
                         # average must be infinitely high
                         self.__averages[pipeline].append(float("inf"))
             if self.__artists[pipeline] is None:
-                self.__artists[pipeline] = self.__axes.plot(self.__tids[pipeline], self.__averages[pipeline],
+                self.__artists[pipeline] = self.__axes.plot(tids[pipeline], self.__averages[pipeline],
                                                             label=pipeline.replace("_", "-"))[0]
             else:
-                self.__artists[pipeline].set_data([self.__tids[pipeline], self.__averages[pipeline]])
+                self.__artists[pipeline].set_data([tids[pipeline], self.__averages[pipeline]])
+
+    def _calculate_best(self):
+        bests = defaultdict(lambda: float("inf"))
+        # Collect the bests of all pipelines
+        for pipeline in self.__selected_pipelines:
+            for trial in self.__trials[pipeline]:
+                # And check the best
+                if bests[trial.id] > trial.loss:
+                    bests[trial.id] = trial.loss
+        # Now plot the best
+        best = float("inf")
+        best_id = None
+        total_bests = []
+        for tid, loss in bests.items():
+            if loss < best:
+                best = loss
+                best_id = tid
+            total_bests.append(best)
+        if self.__best_artist is None and best != float("inf"):
+                self.__best_artist = self.__axes.plot(bests.keys(), total_bests, label="Best loss")[0]
+                self.__best_annotation = self.__axes.annotate("%.3f" % best, xy=(best_id, best),
+                                                              textcoords="offset points", xytext=(1, 25),
+                                                              arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
+        elif best != float("inf"):
+            self.__best_artist.set_data([bests.keys(), total_bests])
+            self.__best_annotation.xy = (best_id, best)
+            self.__best_annotation.set_text("%.3f" % best)
+            self.__best_artist.set_visible(True)
+            self.__best_annotation.set_visible(True)
+        elif self.__best_artist is not None:
+            # No results at all..
+            self.__best_artist.set_visible(False)
+            self.__best_annotation.set_visible(False)
 
     def __handle_pick(self, event):
         if self.__pick_callback is not None:
@@ -136,14 +173,17 @@ class PipelineGraph(QtGui.QWidget):
                 self.__mouse_artist.set_visible(True)
                 self.__canvas.draw()
 
-    def select_pipeline(self, pipeline):
-        self.__selected_pipeline = pipeline
+    def select_pipelines(self, pipelines):
+        if pipelines:
+            self.__selected_pipelines = pipelines
+        else:
+            self.__selected_pipelines = self.__artists.keys()
         for p, artist in self.__artists.items():
-            if p == pipeline:
+            if p in self.__selected_pipelines:
                 artist.set_alpha(1)
             else:
                 artist.set_alpha(0.05)
-        if pipeline is not None:
+        if len(self.__selected_pipelines) == 1:
             # Register for the mouse move event
             self.__mouse_id = self.__canvas.mpl_connect("motion_notify_event", self._move_mouse)
             # And for the pick event
@@ -155,12 +195,13 @@ class PipelineGraph(QtGui.QWidget):
             self.__mouse_artist.set_visible(False)
         if self.__trial_artist is not None:
             self.__trial_artist.set_visible(False)
+        self._calculate_best()
         self.__canvas.draw()
 
     def select_trial(self, tid):
         if tid >= self.__average:
             index = tid - self.__average
-            y = self.__averages[self.__selected_pipeline][index]
+            y = self.__averages[self.__selected_pipelines[0]][index]
             if self.__trial_artist is None:
                 self.__trial_artist = self.__axes.plot(tid, y, marker="D", scalex=False, scaley=False,
                                                        label="_selected_trial")[0]
@@ -293,7 +334,7 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
                 break
 
         # Create the widgets
-        self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipeline, parent=self)
+        self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipelines, parent=self)
         self.__graph_view = PipelineGraph(pipelines=self.__pipelines, trials=self.__trials, average=average,
                                           pick_callback=self._pick_trial, parent=self)
         self.__table_view = PipelineTable(pipelines=self.__pipelines, trials=self.__trials,
@@ -313,9 +354,12 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
     def _select_trial(self, tid):
         self.__graph_view.select_trial(tid)
 
-    def _change_pipeline(self, pipeline):
-        self.__graph_view.select_pipeline(pipeline)
-        self.__table_view.display(pipeline)
+    def _change_pipelines(self, pipelines):
+        self.__graph_view.select_pipelines(pipelines)
+        if len(pipelines) == 1:
+            self.__table_view.display(pipelines[0])
+        else:
+            self.__table_view.clear()
 
     def _pick_trial(self, tid):
         self.__table_view.select_trial(tid)
