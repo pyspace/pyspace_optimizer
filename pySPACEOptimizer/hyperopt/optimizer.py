@@ -142,7 +142,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def optimize(self):
         self.logger.debug("Creating optimization pool")
-        pool = OptimizerPool()
+        pool = OptimizerPool(processes=self._task["max_parallel_pipelines"])
         return self._do_optimization(pool)
 
     def _create_node(self, node_name):
