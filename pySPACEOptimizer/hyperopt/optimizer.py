@@ -82,6 +82,9 @@ def optimize_pipeline(task, pipeline, backend, queue):
         # Store the pipeline as an attachment to the trials
         trials.attachments["pipeline"] = pipeline
 
+        # Log the pipeline
+        pipeline.log_pipeline()
+
         # Do the evaluation
         best_loss = float("inf")
         for pass_ in range(1, passes + 1):
@@ -104,6 +107,11 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 if evaluations * pass_ >= check_after and best_loss > max_loss:
                     pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                          (max_loss, check_after))
+                    parameters = trial.parameters(pipeline)
+                    for id in range(evaluations * passes - (evaluations * pass_)):
+                        # Put inf loss to queue for every remaining evaluation
+                        queue.put((id, float("inf"), pipeline, parameters))
+                    # Then return to break the evaluation
                     return
     except:
         pipeline.logger.exception("Error optimizing NodeChainParameterSpace:")
