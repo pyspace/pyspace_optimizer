@@ -53,7 +53,7 @@ def __minimize(spec):
         except OSError as e:
             pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
     except Exception:
-        pipeline.logger.exception("Error minimizing the pipeline:")
+        pipeline.error_logger.exception("Error minimizing the pipeline:")
         loss = float("inf")
         status = STATUS_FAIL
     return {
