@@ -45,9 +45,14 @@ class PipelineList(QtGui.QListWidget):
         if self.__callback is not None:
             self.__callback([unicode(item.text().replace("-", "_")) for item in self.selectedItems()])
 
+    def select_pipeline(self, pipeline):
+        items = self.findItems(pipeline.replace("_", "-"), QtCore.Qt.MatchExactly)
+        if items:
+            items[0].setSelected(True)
+
 
 class PipelineGraph(QtGui.QWidget):
-    def __init__(self, pipelines, trials, average=1, pick_callback=None, parent=None):
+    def __init__(self, pipelines, trials, average=1, pick_callback=None, select_callback=None, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         self.__figure = pyplot.Figure()
@@ -86,11 +91,14 @@ class PipelineGraph(QtGui.QWidget):
         self.__average = average
         self.__trials = trials
         self.__pick_callback = pick_callback
+        self.__select_callback = select_callback
         self.__mouse_id = None
         self.__mouse_x = None
         self.__pick_id = None
         self._calculate_plots()
         self._calculate_best()
+        # Connect to the pipeline selection
+        self.__canvas.mpl_connect("pick_event", self._handle_select)
 
     def _calculate_plots(self):
         self.__averages = defaultdict(lambda: [])
@@ -116,7 +124,7 @@ class PipelineGraph(QtGui.QWidget):
                         self.__averages[pipeline].append(float("inf"))
             if self.__artists[pipeline] is None:
                 self.__artists[pipeline] = self.__axes.plot(tids[pipeline], self.__averages[pipeline],
-                                                            label=pipeline.replace("_", "-"))[0]
+                                                            label=pipeline.replace("_", "-"), picker=5)[0]
             else:
                 self.__artists[pipeline].set_data([tids[pipeline], self.__averages[pipeline]])
 
@@ -157,8 +165,13 @@ class PipelineGraph(QtGui.QWidget):
         if self.__pick_callback is not None:
             self.__pick_callback(int(event.xdata))
 
+    def _handle_select(self, event):
+        if self.__select_callback is not None:
+            if isinstance(event.artist, pyplot.Line2D):
+                self.__select_callback(event.artist.get_label().replace("-", "_"))
+
     def _move_mouse(self, event):
-        pipeline_data = self.__averages[self.__selected_pipeline]
+        pipeline_data = self.__averages[self.__selected_pipelines[0]]
         if event.xdata is not None and self.__average <= event.xdata < len(pipeline_data) + self.__average:
             x = int(event.xdata)
             if self.__mouse_x != x:
@@ -323,8 +336,12 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         if experiment is not None and os.path.isdir(experiment):
             for element in os.listdir(experiment):
                 if os.path.isdir(os.path.join(experiment, element)):
-                    self.__trials[element] = PersistentTrials(os.path.join(self.__experiment, element), recreate=False)
-                    self.__pipelines[element] = self.__trials[element].attachments.get("pipeline", None)
+                    trials = PersistentTrials(os.path.join(self.__experiment, element), recreate=False)
+                    for trial in trials:
+                        if trial.loss < float("inf"):
+                            self.__trials[element] = trials
+                            self.__pipelines[element] = self.__trials[element].attachments.get("pipeline", None)
+                            break
 
         average = 1
         # Get the average according to the step size in the task
@@ -336,7 +353,8 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         # Create the widgets
         self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipelines, parent=self)
         self.__graph_view = PipelineGraph(pipelines=self.__pipelines, trials=self.__trials, average=average,
-                                          pick_callback=self._pick_trial, parent=self)
+                                          pick_callback=self._pick_trial, select_callback=self._select_pipeline,
+                                          parent=self)
         self.__table_view = PipelineTable(pipelines=self.__pipelines, trials=self.__trials,
                                           row_selection_callback=self._select_trial, parent=self)
 
@@ -350,6 +368,9 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         right_layout.addWidget(self.__table_view)
         main_layout.addWidget(right_widget)
         self.setLayout(main_layout)
+
+    def _select_pipeline(self, pipeline):
+        self.__list_view.select_pipeline(pipeline)
 
     def _select_trial(self, tid):
         self.__graph_view.select_trial(tid)
