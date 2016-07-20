@@ -104,8 +104,8 @@ class NodeListGenerator(object):
     def __iter__(self):
         # Generate all node lists
         for node_list in self._make_node_list(numpy.chararray(self._max_length, itemsize=255),
-                                             self._input_type,
-                                             numpy.chararray(self._max_length, itemsize=255),
-                                             index=0):
+                                              self._input_type,
+                                              numpy.chararray(self._max_length, itemsize=255),
+                                              index=0):
             yield node_list
         raise StopIteration()
