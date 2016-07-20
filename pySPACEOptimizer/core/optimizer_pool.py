@@ -24,8 +24,7 @@ class OptimizerPool(Pool):
     def __init__(self, processes=None, initializer=None, initargs=None):
         if initargs is None:
             initargs = ()
-        super(OptimizerPool, self).__init__(processes=processes, initializer=initializer, initargs=initargs,
-                                            maxtasksperchild=1)
+        super(OptimizerPool, self).__init__(processes=processes, initializer=initializer, initargs=initargs)
 
     #        signal.signal(signal.SIGTERM, self._handle_signal)
     #        signal.signal(signal.SIGINT, self._handle_signal)
