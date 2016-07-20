@@ -156,6 +156,10 @@ class Task(dict):
             elif self["source_node"] is None:
                 # Append all source nodes
                 nodes.update({node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if is_source_node(node)})
+            # Add all the forced nodes
+            if self["forced_nodes"]:
+                for node in self["forced_nodes"]:
+                    nodes[node] = DEFAULT_NODE_MAPPING[node]
         else:
             nodes = {node: class_ for node, class_ in DEFAULT_NODE_MAPPING.items() if self.__valid_node(node)}
 
