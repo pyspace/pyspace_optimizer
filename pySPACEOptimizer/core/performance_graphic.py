@@ -74,7 +74,7 @@ try:
         def run(self):
             while not self.__stopped.isSet():
                 # Wait one minute
-                self.__stopped.wait(timeout=10)
+                self.__stopped.wait(timeout=60)
                 # Update the performance graphic
                 self.__update()
 
