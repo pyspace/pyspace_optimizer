@@ -9,76 +9,58 @@ try:
 
     class PerformanceGraphic(threading.Thread):
 
-        def __init__(self, window_size=1, file_path="performance.pdf"):
+        def __init__(self, file_path="performance.pdf"):
             super(PerformanceGraphic, self).__init__(name="PerformanceGraphic")
             self.__file_path = file_path
-            self.__window_size = window_size
             self._logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__name__))
-            self.__trials = defaultdict(lambda: [])
-            self.__tids = defaultdict(lambda: [])
-            self.__averages = defaultdict(lambda: [])
-            self.__means = defaultdict(lambda: 0)
-            self.__number_of_points = defaultdict(lambda: 0)
-            self.__bests = defaultdict(lambda: float("inf"))
-            self.__current_indexes = defaultdict(lambda: 0)
+            self.__pipelines = defaultdict(lambda: [])
+            self.__number_of_trials = defaultdict(lambda: 0)
             self.__lock = threading.Lock()
             self.__stopped = threading.Event()
 
         def add(self, pipeline, id_, loss):
             with self.__lock:
-                trials = self.__trials[pipeline]
-                if len(trials) <= id_:
-                    trials.extend([float("inf") for _ in range(len(trials), id_ + 1)])
-                trials[id_] = loss
+                if id_ > self.__number_of_trials[pipeline]:
+                    self.__number_of_trials[pipeline] = id_
+
+                path = self.__pipelines[pipeline]
+                if not path:
+                    path.append((id_, loss))
+                elif path[-1][0] < id_:
+                    # The trial is at the end of the path
+                    # simply check the last segment
+                    if path[-1][1] > loss:
+                        path.append((id_, loss))
+                else:
+                    # It is somewhere inside the path
+                    # search for it an update the path
+                    # from there on
+                    for i, (tid, tloss) in enumerate(path):
+                        if tid > id_ and path[i][1] > loss :
+                            path.insert(i, (id_, loss))
+                        elif tid > id_ and tloss > loss:
+                            path[i][1] = loss
 
         def __update(self):
             figure = pyplot.figure(figsize=(11, 8), dpi=80)
             figure.set_tight_layout(True)
             pyplot.xlabel("Trial number")
             pyplot.ylabel("Loss")
+            pyplot.title("Processing pipeline performance during optimization")
 
             with self.__lock:
-                number_of_pipelines = len(self.__trials.keys())
-                for pipeline, trials in self.__trials.items():
-                    if self.__current_indexes[pipeline] < len(trials):
-                        for i in range(self.__current_indexes[pipeline], len(trials)):
-                            current_loss = trials[i]
-                            if current_loss < float("inf"):
-                                self.__means[pipeline] += current_loss
-                                self.__number_of_points[pipeline] += 1
-
-                            if i >= self.__window_size:
-                                last_loss = trials[i - self.__window_size]
-                                if last_loss < float("inf"):
-                                    self.__means[pipeline] -= last_loss
-                                    self.__number_of_points[pipeline] -= 1
-                                self.__tids[pipeline].append(i)
-                                if self.__number_of_points[pipeline] > 0:
-                                    self.__averages[pipeline].append(self.__means[pipeline] /
-                                                                     self.__number_of_points[pipeline])
-                                else:
-                                    # No valid points inside the window,
-                                    # average must be infinitely high
-                                    self.__averages[pipeline].append(float("inf"))
-                            # And check the best
-                            if self.__bests[i] > current_loss:
-                                self.__bests[i] = current_loss
-                            self.__current_indexes[pipeline] += 1
+                number_of_pipelines = len(self.__pipelines)
+                for pipeline, path in self.__pipelines.items():
+                    # Interpolate the path
+                    path_index = 0
+                    plot_path = []
+                    for i in range(self.__number_of_trials[pipeline] + 1):
+                        if path_index + 1 < len(path) and path[path_index + 1][0] <= i:
+                            path_index += 1
+                        id_, loss = path[path_index]
+                        plot_path.append(loss)
                     # Plot the results
-                    pyplot.title("NodeChainParameterSpace performance during optimization")
-                    pyplot.plot(self.__tids[pipeline], self.__averages[pipeline], label="%s" % pipeline)
-
-            # and calculate the list of bests
-            best = float("inf")
-            bests = []
-            for tid, tid_best in self.__bests.items():
-                if tid_best < best:
-                    best = tid_best
-                    pyplot.annotate("%.3f" % best, xy=(tid, best),
-                                    textcoords="offset points", xytext=(1, 25),
-                                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
-                bests.append(best)
-            pyplot.plot(self.__bests.keys(), bests, label="Best loss at trial")
+                    pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
 
             if number_of_pipelines <= 4:
                 # Plot only a legend if the number of pipelines is
@@ -92,7 +74,7 @@ try:
         def run(self):
             while not self.__stopped.isSet():
                 # Wait one minute
-                self.__stopped.wait(timeout=60)
+                self.__stopped.wait(timeout=10)
                 # Update the performance graphic
                 self.__update()
 

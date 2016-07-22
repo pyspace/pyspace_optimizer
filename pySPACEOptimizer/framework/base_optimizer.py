@@ -84,8 +84,7 @@ class PySPACEOptimizer(object):
         self.__logger = logging.getLogger("pySPACEOptimizer.optimizer.{optimizer}".format(optimizer=self))
         self.__pipelines = []
         self.__queue = Manager().Queue()
-        self.__performance_graphic = PerformanceGraphic(window_size=task["window_size"],
-                                                        file_path=os.path.join(task.base_result_dir, "performance.pdf"))
+        self.__performance_graphic = PerformanceGraphic(file_path=os.path.join(task.base_result_dir, "performance.pdf"))
         self.__queue_reader = PySPACEOptimizer.QueueReader(task, self)
         self.__best = [float("inf"), None, None]
 
