@@ -86,7 +86,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
         pipeline.log_pipeline()
 
         # Do the evaluation
-        best_loss = float("inf")
+        last_trial = None
         for pass_ in range(1, passes + 1):
             pipeline.logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
             # Create a progress bar
@@ -102,17 +102,17 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
                 progress_bar.update(progress_bar.currval + 1)
-                if trial.loss < best_loss:
-                    best_loss = trial.loss
-                if evaluations * pass_ >= check_after and best_loss > max_loss:
-                    pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
-                                         (max_loss, check_after))
-                    parameters = trial.parameters(pipeline)
-                    for id in range(evaluations * passes - (evaluations * pass_)):
-                        # Put inf loss to queue for every remaining evaluation
-                        queue.put((id, float("inf"), pipeline, parameters))
-                    # Then return to break the evaluation
-                    return
+                if best_trial is None or trial.loss < best_trial.loss:
+                    best_trial = trial
+            if evaluations * pass_ >= check_after and best_trial.loss > max_loss:
+                pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
+                                     (max_loss, check_after))
+                parameters = best_trial.parameters(pipeline)
+                for id in range(evaluations * pass_, evaluations * passes - (evaluations * pass_)):
+                    # Put inf loss to queue for every remaining evaluation
+                    queue.put((id, best_trial.loss, pipeline, parameters))
+                # Then return to break the evaluation
+                return
     except:
         pipeline.logger.exception("Error optimizing NodeChainParameterSpace:")
 
