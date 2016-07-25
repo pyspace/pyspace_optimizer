@@ -86,7 +86,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
         pipeline.log_pipeline()
 
         # Do the evaluation
-        last_trial = None
+        best_trial = None
         for pass_ in range(1, passes + 1):
             pipeline.logger.info("-" * 10 + " Optimization pass: %d / %d " % (pass_, passes) + "-" * 10)
             # Create a progress bar
@@ -102,7 +102,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
                 # Update the progress bar
                 progress_bar.update(progress_bar.currval + 1)
-                if best_trial is None or trial.loss < best_trial.loss:
+                if best_trial is None or trial.loss <= best_trial.loss:
                     best_trial = trial
             if evaluations * pass_ >= check_after and best_trial.loss > max_loss:
                 pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
