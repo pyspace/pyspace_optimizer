@@ -36,7 +36,7 @@ try:
                     # search for it an update the path
                     # from there on
                     for i, (tid, tloss) in enumerate(path):
-                        if tid > id_ and path[i][1] > loss :
+                        if tid > id_ and path[i][1] > loss:
                             path.insert(i, (id_, loss))
                         elif tid > id_ and tloss > loss:
                             path[i][1] = loss
@@ -48,6 +48,7 @@ try:
             pyplot.ylabel("Loss")
             pyplot.title("Processing pipeline performance during optimization")
 
+            global_min = (0, float("inf"))
             with self.__lock:
                 number_of_pipelines = len(self.__pipelines)
                 for pipeline, path in self.__pipelines.items():
@@ -59,8 +60,13 @@ try:
                             path_index += 1
                         id_, loss = path[path_index]
                         plot_path.append(loss)
+                        if loss < global_min[1]:
+                            global_min = (id_, loss)
                     # Plot the results
                     pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
+            # And annotate the global minimum
+            pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points", xytext=(1, 25),
+                            arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
 
             if number_of_pipelines <= 4:
                 # Plot only a legend if the number of pipelines is
