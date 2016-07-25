@@ -108,7 +108,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                      (max_loss, check_after))
                 parameters = best_trial.parameters(pipeline)
-                for id in range(evaluations * pass_, evaluations * passes - (evaluations * pass_)):
+                for id in range(evaluations * pass_, evaluations * passes):
                     # Put inf loss to queue for every remaining evaluation
                     queue.put((id, best_trial.loss, pipeline, parameters))
                 # Then return to break the evaluation
