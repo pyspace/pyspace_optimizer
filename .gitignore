@@ -8,4 +8,5 @@ unittest_log.txt
 .idea
 *.pyc
 *.pylog
+*.*.swp
 performance.png
