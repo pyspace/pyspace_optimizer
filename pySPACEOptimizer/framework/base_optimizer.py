@@ -83,7 +83,10 @@ class PySPACEOptimizer(object):
             self.__best_result_file = "%s_best.yaml" % task["data_set_path"]
         self.__logger = logging.getLogger("pySPACEOptimizer.optimizer.{optimizer}".format(optimizer=self))
         self.__pipelines = []
-        self.__queue = Manager().Queue()
+        # Calculate the queue size as beeing large enough
+        # to store the results of all evaluations
+        # of all pipelines beein processed in parallel
+        self.__queue = Manager().Queue(maxsize=task["max_parallel_pipelines"] * task["evaluations_per_pass"] * task["passes"])
         self.__performance_graphic = PerformanceGraphic(file_path=os.path.join(task.base_result_dir, "performance.pdf"))
         self.__queue_reader = PySPACEOptimizer.QueueReader(task, self)
         self.__best = [float("inf"), None, None]
