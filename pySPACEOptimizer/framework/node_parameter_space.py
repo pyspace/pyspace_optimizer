@@ -139,26 +139,9 @@ class NodeParameterSpace(object):
 
 
 class SinkNodeParameterSpace(NodeParameterSpace):
-
-    def __init__(self, node_name, task):
-        super(SinkNodeParameterSpace, self).__init__(node_name, task=task)
-        self._main_class = task["main_class"]
-        self._class_labels = task["class_labels"]
-        self._property = "ir_class"
-
-    def parameter_space(self):
+   def parameter_space(self):
         return {self._make_parameter_name(parameter): parameter for parameter in self._values}
 
-    def as_dictionary(self):
-        result = super(SinkNodeParameterSpace, self).as_dictionary()
-        if "parameters" not in result:
-            result["parameters"] = {}
-        result["parameters"]["ir_class"] = self._main_class
-        result["parameters"]["classes_names"] = self._class_labels
-        return result
-
-
 class SourceNodeParameterSpace(NodeParameterSpace):
-
     def parameter_space(self):
         return {self._make_parameter_name(parameter): parameter for parameter in self._values}
