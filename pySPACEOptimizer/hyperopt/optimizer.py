@@ -23,17 +23,20 @@ from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
+BACKEND = None
+
+
 # noinspection PyBroadException
-def __minimize(pipeline, backend, spec):
+def __minimize(spec):
+    pipeline, parameter_setting = spec
     task = pipeline.configuration
-    parameter_settings = [spec]
     try:
         # Execute the pipeline
         # Log errors from here with special logger
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result_path = pipeline.execute(backend=backend, parameter_settings=parameter_settings)
+                result_path = pipeline.execute(backend=BACKEND, parameter_settings=[parameter_setting])
         # Check the result
         status = STATUS_OK
         result_file = os.path.join(result_path, "results.csv")
@@ -65,8 +68,9 @@ def __minimize(pipeline, backend, spec):
 
 def optimize_pipeline(task, pipeline, backend, queue):
     # Create the pipeline that should be optimized
+    global BACKEND
     with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-        backend = pySPACE.create_backend(backend)
+        BACKEND = pySPACE.create_backend(backend)
 
     # Get the suggestion algorithm for the trials
     suggestion_algorithm = task["suggestion_algorithm"] if task["suggestion_algorithm"] else tpe.suggest
@@ -79,8 +83,8 @@ def optimize_pipeline(task, pipeline, backend, queue):
 
     try:
         # Create the trials object loading the persistent trials
-        trials = PersistentTrials(pipeline=pipeline, fn=partial(__minimize, pipeline, backend),
-                                  space=pipeline.pipeline_space,
+        trials = PersistentTrials(pipeline=pipeline, fn=__minimize,
+                                  space=(pipeline, pipeline.pipeline_space),
                                   recreate=task.get("restart_evaluation", False),
                                   rseed=int(time.time()))
         # Store the pipeline as an attachment to the trials

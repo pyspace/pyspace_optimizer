@@ -80,6 +80,7 @@ class PersistentTrials(Trials):
         self._attachments_file = os.path.join(trials_dir, self.ATTACHMENTS_NAME)
         if recreate and os.path.isfile(self._trials_file):
             os.unlink(self._trials_file)
+            os.unlink(self._attachments_file)
         super(PersistentTrials, self).__init__(exp_key=exp_key, refresh=False)
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()
