@@ -79,7 +79,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
     try:
         # Create the trials object loading the persistent trials
         trials = PersistentTrials(pipeline=pipeline, fn=__minimize,
-                                  space=((pipeline, backend), pipeline.pipipeline_space),
+                                  space=((pipeline, backend), pipeline.pipeline_space),
                                   recreate=task.get("restart_evaluation", False),
                                   rseed=int(time.time()))
         # Store the pipeline as an attachment to the trials
