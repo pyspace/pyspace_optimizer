@@ -90,7 +90,7 @@ class Task(dict):
             "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name),
             "max_loss": max_loss,
             "check_after": check_after,
-            "max_parallel_pipelines": max_parallel_pipelines,
+            "max_parallel_pipelines": max_parallel_pipelines
         })
         super(Task, self).update(kwargs)
 

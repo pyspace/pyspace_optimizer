@@ -86,7 +86,9 @@ class PySPACEOptimizer(object):
         # Calculate the queue size as beeing large enough
         # to store the results of all evaluations
         # of all pipelines beein processed in parallel
-        self.__queue = Manager().Queue(maxsize=task["max_parallel_pipelines"] * task["evaluations_per_pass"] * task["passes"])
+        max_size = task["max_parallel_pipelines"] if task["max_parallel_pipelines"] is not None else 1
+        max_size *= task["evaluations_per_pass"] * task["passes"]
+        self.__queue = Manager().Queue(maxsize=max_size)
         self.__performance_graphic = PerformanceGraphic(file_path=os.path.join(task.base_result_dir, "performance.pdf"))
         self.__queue_reader = PySPACEOptimizer.QueueReader(task, self)
         self.__best = [float("inf"), None, None]
