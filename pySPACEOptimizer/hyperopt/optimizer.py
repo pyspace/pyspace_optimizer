@@ -30,13 +30,15 @@ BACKEND = None
 def __minimize(spec):
     pipeline, parameter_setting = spec
     task = pipeline.configuration
+    operation = pipeline.create_operation(backend=BACKEND, parameter_settings=[parameter_setting])
+    result_path = operation.get_result_directory()
     try:
         # Execute the pipeline
         # Log errors from here with special logger
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result_path = pipeline.execute(backend=BACKEND, parameter_settings=[parameter_setting])
+                pipeline.execute(operation)
         # Check the result
         status = STATUS_OK
         result_file = os.path.join(result_path, "results.csv")
@@ -51,15 +53,17 @@ def __minimize(spec):
             pipeline.logger.info("No results found. Returning inf")
             loss = float("inf")
             status = STATUS_FAIL
+    except Exception:
+        pipeline.error_logger.exception("Error minimizing the pipeline:")
+        loss = float("inf")
+        status = STATUS_FAIL
+    finally:
         # Remove the result dir
         try:
             shutil.rmtree(result_path)
         except OSError as e:
             pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
-    except Exception:
-        pipeline.error_logger.exception("Error minimizing the pipeline:")
-        loss = float("inf")
-        status = STATUS_FAIL
+ 
     return {
         "loss": loss,
         "status": status,

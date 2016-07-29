@@ -135,7 +135,12 @@ class NodeChainParameterSpace(object):
                 level=logging.WARNING)
         return self._error_logger
 
-    def execute(self, backend, parameter_settings=None):
+    def create_operation(backend, parameter_settings=None):
+        # noinspection PyBroadException
+        return pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
+                                             base_result_dir=self.base_result_dir)
+
+    def execute(self, operation):
         """
         Executes the pipeline using the given backend.
 
@@ -146,13 +151,9 @@ class NodeChainParameterSpace(object):
         :return: The path to the results of the pipeline
         :rtype: unicode
         """
-        # noinspection PyBroadException
-        operation = pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
-                                             base_result_dir=self.base_result_dir)
         with open(os.devnull, "w") as output:
             with output_diverter(std_out=output, std_err=sys.stderr):
                 pySPACE.run_operation(backend, operation)
-        return operation.get_output_directory()
 
     def __eq__(self, other):
         if hasattr(other, "nodes"):

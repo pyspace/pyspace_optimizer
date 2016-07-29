@@ -77,6 +77,10 @@ class ClassificationSinkNodeParameterSpace(SinkNodeParameterSpace):
         result["parameters"]["classes_names"] = self._class_labels
         return result
 
+HyperoptSinkNodeParameterSpace = ClassificationSinkNodeParameterSpace
 
 class ClassificationSourceNodeParameterSpace(SourceNodeParameterSpace):
     pass
+
+HyperoptSourceNodeParameterSpace = ClassificationSourceNodeParameterSpace
+
