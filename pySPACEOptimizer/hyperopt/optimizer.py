@@ -30,8 +30,9 @@ BACKEND = None
 def __minimize(spec):
     pipeline, parameter_setting = spec
     task = pipeline.configuration
-    operation = pipeline.create_operation(backend=BACKEND, parameter_settings=[parameter_setting])
-    result_path = operation.get_result_directory()
+    with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
+        operation = pipeline.create_operation(backend=BACKEND, parameter_settings=[parameter_setting])
+    result_path = operation.get_output_directory()
     try:
         # Execute the pipeline
         # Log errors from here with special logger

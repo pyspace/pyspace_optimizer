@@ -15,5 +15,4 @@ whitelist: [SorSvmNode]
 parameter_ranges:
     - node: SorSvmNode
       parameters:
-          complexity: 1
           max_iterations: 10
