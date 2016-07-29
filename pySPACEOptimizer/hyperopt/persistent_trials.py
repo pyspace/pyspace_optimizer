@@ -74,7 +74,8 @@ class PersistentTrials(Trials):
     STORAGE_NAME = "trials.pickle"
     ATTACHMENTS_NAME = "attachments.pickle"
 
-    def __init__(self, trials_dir, recreate=False, exp_key=None, refresh=True):
+    def __init__(self, pipeline, fn, space, recreate=False, exp_key=None, refresh=True, rseed=None):
+        trials_dir = pipeline.base_result_dir
         self._trials_file = os.path.join(trials_dir, self.STORAGE_NAME)
         self._attachments_file = os.path.join(trials_dir, self.ATTACHMENTS_NAME)
         if recreate and os.path.isfile(self._trials_file):
@@ -85,6 +86,9 @@ class PersistentTrials(Trials):
         self.attachments = self._load_attachments()
         if refresh:
             self.refresh()
+        # Now create the domain to store the model
+        self.__rseed = rseed if rseed is not None else 123
+        self.__domain = Domain(fn=fn, expr=space, workdir=trials_dir, rseed=self.__rseed)
 
     def _load_attachments(self):
         if os.path.isfile(self._attachments_file):
@@ -154,12 +158,12 @@ class PersistentTrials(Trials):
     def _update_doc(self, trial):
         self._dynamic_trials[trial["tid"]] = trial
 
-    def _do_evaluate(self, domain, trials):
+    def _do_evaluate(self, trials):
         for trial in trials:
-            evaluate_trial(domain=domain, trials=self, trial=trial)
+            evaluate_trial(domain=self.__domain, trials=self, trial=trial)
             yield trial
 
-    def _evaluate(self, domain, evaluations, pass_):
+    def _evaluate(self, evaluations, pass_):
         # Get the trials to evaluate
         trials_to_evaluate = []
         # yield all already evaluated trials
@@ -169,18 +173,18 @@ class PersistentTrials(Trials):
             else:
                 yield trial
         # evaluate the trials that have to be done and yield the result
-        for trial in self._do_evaluate(domain, trials_to_evaluate):
+        for trial in self._do_evaluate(trials_to_evaluate):
             self._update_doc(trial=trial)
             yield trial
 
-    def _enqueue_trials(self, domain, algo, max_evals, rseed):
+    def _enqueue_trials(self, algo, max_evals):
         n_to_enqueue = max_evals - len(self._trials)
         if n_to_enqueue > 0:
             new_ids = self.new_trial_ids(n_to_enqueue)
             new_trials = algo(new_ids=new_ids,
-                              domain=domain,
+                              domain=self.__domain,
                               trials=self,
-                              seed=rseed)
+                              seed=self.__rseed)
             if new_trials is base.StopExperiment:
                 return False
             else:
@@ -191,14 +195,13 @@ class PersistentTrials(Trials):
                     return False
         return True
 
-    def minimize(self, fn, space, algo, evaluations, pass_, rseed=123):
-        domain = Domain(fn, space, rseed=rseed)
+    def minimize(self, algo, evaluations, pass_):
         # Enqueue the trials
-        if not self._enqueue_trials(domain=domain, algo=algo, max_evals=evaluations * pass_, rseed=rseed):
+        if not self._enqueue_trials(algo=algo, max_evals=evaluations * pass_):
             raise StopIteration()
 
         # Do one minimization step and yield the result
-        for trial in self._evaluate(domain=domain, evaluations=evaluations, pass_=pass_):
+        for trial in self._evaluate(evaluations=evaluations, pass_=pass_):
             # yield the result
             yield Trial(trial, self.trial_attachments(trial))
         # Refresh the trials to persist the changes

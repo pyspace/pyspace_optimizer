@@ -78,7 +78,10 @@ def optimize_pipeline(task, pipeline, backend, queue):
 
     try:
         # Create the trials object loading the persistent trials
-        trials = PersistentTrials(trials_dir=pipeline.base_result_dir, recreate=task.get("restart_evaluation", False))
+        trials = PersistentTrials(pipeline=pipeline, fn=__minimize,
+                                  space=((pipeline, backend), pipeline.pipipeline_space),
+                                  recreate=task.get("restart_evaluation", False),
+                                  rseed=int(time.time()))
         # Store the pipeline as an attachment to the trials
         trials.attachments["pipeline"] = pipeline
 
@@ -94,9 +97,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
                                        maxval=evaluations,
                                        fd=FileLikeLogger(logger=pipeline.logger, log_level=logging.INFO))
             pipeline.logger.debug("Minimizing the pipeline")
-            for trial in trials.minimize(fn=__minimize, space=((pipeline, backend), pipeline.pipeline_space),
-                                         algo=suggestion_algorithm, evaluations=evaluations, pass_=pass_,
-                                         rseed=int(time.time())):
+            for trial in trials.minimize(algo=suggestion_algorithm, evaluations=evaluations, pass_=pass_):
                 pipeline.logger.debug("Trial: {trial.id} / Loss: {trial.loss}".format(trial=trial))
                 # Put the result into the queue
                 queue.put((trial.id, trial.loss, pipeline, trial.parameters(pipeline)))
