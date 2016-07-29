@@ -84,11 +84,17 @@ class PersistentTrials(Trials):
         # Load the last trials from the trials directory
         self._dynamic_trials = self._load_trials()
         self.attachments = self._load_attachments()
+        self.__rseed = rseed if rseed is not None else 123
+        # Now create the domain to store the model
+        if "domain" in self.attachments:
+            # Load the domain from the attachments
+            self.__domain = self.attachments["domain"]
+        else:
+            # create a new domain and store it
+            self.__domain = Domain(fn=fn, expr=space, workdir=trials_dir, rseed=self.__rseed)
+            self.attachments["domain"] = self.__domain
         if refresh:
             self.refresh()
-        # Now create the domain to store the model
-        self.__rseed = rseed if rseed is not None else 123
-        self.__domain = Domain(fn=fn, expr=space, workdir=trials_dir, rseed=self.__rseed)
 
     def _load_attachments(self):
         if os.path.isfile(self._attachments_file):
