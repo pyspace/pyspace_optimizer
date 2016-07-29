@@ -7,6 +7,8 @@ import shutil
 import time
 import warnings
 
+from functools import partial
+
 from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 
 import pySPACE
@@ -22,10 +24,9 @@ from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
 
 # noinspection PyBroadException
-def __minimize(spec):
-    pipeline, backend = spec[0]
+def __minimize(pipeline, backend, spec):
     task = pipeline.configuration
-    parameter_settings = [spec[1]]
+    parameter_settings = [spec]
     try:
         # Execute the pipeline
         # Log errors from here with special logger
@@ -78,8 +79,8 @@ def optimize_pipeline(task, pipeline, backend, queue):
 
     try:
         # Create the trials object loading the persistent trials
-        trials = PersistentTrials(pipeline=pipeline, fn=__minimize,
-                                  space=((pipeline, backend), pipeline.pipeline_space),
+        trials = PersistentTrials(pipeline=pipeline, fn=partial(__minimize, pipeline, backend),
+                                  space=pipeline.pipeline_space,
                                   recreate=task.get("restart_evaluation", False),
                                   rseed=int(time.time()))
         # Store the pipeline as an attachment to the trials
