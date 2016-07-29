@@ -62,7 +62,7 @@ class HyperoptNodeParameterSpace(NodeParameterSpace):
                 for name, parameter in super(HyperoptNodeParameterSpace, self).parameter_space().items()}
 
 
-class HyperoptSinkNodeParameterSpace(SinkNodeParameterSpace):
+class ClassificationSinkNodeParameterSpace(SinkNodeParameterSpace):
     def __init__(self, node_name, task):
         super(SinkNodeParameterSpace, self).__init__(node_name, task=task)
         self._main_class = task["main_class"]
@@ -78,5 +78,5 @@ class HyperoptSinkNodeParameterSpace(SinkNodeParameterSpace):
         return result
 
 
-class HyperoptSourceNodeParameterSpace(SourceNodeParameterSpace):
+class ClassificationSourceNodeParameterSpace(SourceNodeParameterSpace):
     pass

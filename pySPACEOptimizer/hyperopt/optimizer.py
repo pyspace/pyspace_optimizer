@@ -16,7 +16,7 @@ from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
 from pySPACEOptimizer.hyperopt.hyperopt_node_parameter_space import HyperoptNodeParameterSpace, \
-    HyperoptSinkNodeParameterSpace, HyperoptSourceNodeParameterSpace
+    ClassificationSinkNodeParameterSpace, ClassificationSourceNodeParameterSpace
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
@@ -118,7 +118,15 @@ def optimize_pipeline(task, pipeline, backend, queue):
 
 
 class HyperoptOptimizer(PySPACEOptimizer):
+    """
+    Optimizer to evaluate the processing pipelines and optimize the hyperparameters.
 
+    This class implements an optimizer for the pySPACEOptimzier framework using the
+    optimization library called `Hyperopt <https://github.com/hyperopt/hyperopt>`.
+    Given an optimization task this class generates all valid processing pipelines,
+    samples hyperparamter settings for them and evaluates these to find the best
+    performing processing pipeline.
+    """
     def __init__(self, task, backend, best_result_file):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
 
@@ -155,9 +163,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def _create_node(self, node_name):
         if is_sink_node(node_name):
-            return HyperoptSinkNodeParameterSpace(node_name=node_name, task=self._task)
+            return ClassificationSinkNodeParameterSpace(node_name=node_name, task=self._task)
         elif is_source_node(node_name):
-            return HyperoptSourceNodeParameterSpace(node_name=node_name, task=self._task)
+            return ClassificationSourceNodeParameterSpace(node_name=node_name, task=self._task)
         else:
             return HyperoptNodeParameterSpace(node_name=node_name, task=self._task)
 
