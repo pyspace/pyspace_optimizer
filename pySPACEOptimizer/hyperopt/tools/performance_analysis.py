@@ -336,7 +336,8 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
         if experiment is not None and os.path.isdir(experiment):
             for element in os.listdir(experiment):
                 if os.path.isdir(os.path.join(experiment, element)):
-                    trials = PersistentTrials(os.path.join(self.__experiment, element), recreate=False)
+                    trials = PersistentTrials(os.path.join(self.__experiment, element), fn=None, space=None,
+                                              recreate=False)
                     for trial in trials:
                         if trial.loss < float("inf"):
                             self.__trials[element] = trials

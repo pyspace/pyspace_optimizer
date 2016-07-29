@@ -6,8 +6,8 @@ class_labels: [Standard, Target]
 main_class: Target
 max_pipeline_length: 4
 
-evaluations_per_pass: 2
-passes: 2
+evaluations_per_pass: 10
+passes: 20
 restart_evaluation: true
 
 source_node: FeatureVectorSourceNode

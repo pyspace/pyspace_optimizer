@@ -74,8 +74,7 @@ class PersistentTrials(Trials):
     STORAGE_NAME = "trials.pickle"
     ATTACHMENTS_NAME = "attachments.pickle"
 
-    def __init__(self, pipeline, fn, space, recreate=False, exp_key=None, refresh=True, rseed=None):
-        trials_dir = pipeline.base_result_dir
+    def __init__(self, trials_dir, fn, space, recreate=False, exp_key=None, refresh=True, rseed=None):
         self._trials_file = os.path.join(trials_dir, self.STORAGE_NAME)
         self._attachments_file = os.path.join(trials_dir, self.ATTACHMENTS_NAME)
         if recreate and os.path.isfile(self._trials_file):
