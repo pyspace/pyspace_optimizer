@@ -31,7 +31,7 @@ def __minimize(spec):
     pipeline, parameter_setting = spec
     task = pipeline.configuration
     with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
-        operation = pipeline.create_operation(backend=BACKEND, parameter_settings=[parameter_setting])
+        operation = pipeline.create_operation(parameter_settings=[parameter_setting])
     result_path = operation.get_output_directory()
     try:
         # Execute the pipeline
@@ -39,7 +39,7 @@ def __minimize(spec):
         with output_logger(std_out_logger=None, std_err_logger=pipeline.error_logger):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                pipeline.execute(operation)
+                pipeline.execute(backend=BACKEND, operation=operation)
         # Check the result
         status = STATUS_OK
         result_file = os.path.join(result_path, "results.csv")

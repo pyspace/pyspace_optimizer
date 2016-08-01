@@ -135,12 +135,12 @@ class NodeChainParameterSpace(object):
                 level=logging.WARNING)
         return self._error_logger
 
-    def create_operation(self, backend, parameter_settings=None):
+    def create_operation(self, parameter_settings=None):
         # noinspection PyBroadException
         return pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
                                              base_result_dir=self.base_result_dir)
 
-    def execute(self, operation):
+    def execute(self, operation, backend):
         """
         Executes the pipeline using the given backend.
 
