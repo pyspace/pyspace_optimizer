@@ -72,7 +72,8 @@ try:
                 else:
                     number_of_pipelines += 1
             # And annotate the global minimum
-            pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points", xytext=(-1, 25),
+            pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points",
+                            xytext=(1, -20),
                             arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
 
             if number_of_pipelines <= 10:
