@@ -136,16 +136,26 @@ class NodeChainParameterSpace(object):
         return self._error_logger
 
     def create_operation(self, parameter_settings=None):
-        # noinspection PyBroadException
-        return pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
-                                             base_result_dir=self.base_result_dir)
-
-    def execute(self, operation, backend):
         """
-        Executes the pipeline using the given backend.
+        Create an operation from this node chain and the given parameter settings.
+
+        This method will create an pySPACE operation from this node chain and
+        the given parameter settings.
 
         :param parameter_settings: The ranges to let pySPACE select the values for the parameters for.
         :type parameter_settings: list[dict[str, object]]
+        :return: An operation that can be executed using the execute method.
+        """
+        return pySPACE.create_operation(self.operation_spec(parameter_settings=parameter_settings),
+                                        base_result_dir=self.base_result_dir)
+
+    @staticmethod
+    def execute(operation, backend):
+        """
+        Executes the pipeline using the given backend.
+
+        :param operation: The operation to execute.
+                          This operation needs to be created using the `create_operation` method.
         :param backend: The backend to use for the execution.
         :type backend: Backend
         :return: The path to the results of the pipeline

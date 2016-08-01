@@ -7,13 +7,11 @@ import shutil
 import time
 import warnings
 
-from functools import partial
-
-from hyperopt import STATUS_OK, tpe, STATUS_FAIL
-
 import pySPACE
+from hyperopt import STATUS_OK, tpe, STATUS_FAIL
 from pySPACE.resources.dataset_defs.performance_result import PerformanceResultSummary
 from pySPACE.tools.progressbar import ProgressBar, Percentage, Bar
+
 from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
@@ -21,7 +19,6 @@ from pySPACEOptimizer.hyperopt.hyperopt_node_parameter_space import HyperoptNode
     ClassificationSinkNodeParameterSpace, ClassificationSourceNodeParameterSpace
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
-
 
 BACKEND = None
 
@@ -64,7 +61,8 @@ def __minimize(spec):
             shutil.rmtree(result_path)
         except OSError as e:
             pipeline.logger.warn("Error while trying to delete the result dir: {error}".format(error=e.message))
- 
+
+    # noinspection PyUnboundLocalVariable
     return {
         "loss": loss,
         "status": status,
@@ -86,6 +84,7 @@ def optimize_pipeline(task, pipeline, backend, queue):
     max_loss = task["max_loss"]
     check_after = task["check_after"]
 
+    # noinspection PyBroadException
     try:
         # Create the trials object loading the persistent trials
         trials = PersistentTrials(trials_dir=pipeline.base_result_dir, fn=__minimize,
@@ -119,9 +118,9 @@ def optimize_pipeline(task, pipeline, backend, queue):
                 pipeline.logger.warn("No pipeline found with loss better than %s after %s evaluations. Giving up" %
                                      (max_loss, check_after))
                 parameters = best_trial.parameters(pipeline)
-                for id in range(evaluations * pass_, evaluations * passes):
+                for id_ in range(evaluations * pass_, evaluations * passes):
                     # Put inf loss to queue for every remaining evaluation
-                    queue.put((id, best_trial.loss, pipeline, parameters))
+                    queue.put((id_, best_trial.loss, pipeline, parameters))
                 # Then return to break the evaluation
                 return
     except:

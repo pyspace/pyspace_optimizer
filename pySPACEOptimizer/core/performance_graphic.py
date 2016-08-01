@@ -49,8 +49,8 @@ try:
             pyplot.title("Processing pipeline performance during optimization")
 
             global_min = (0, float("inf"))
+            number_of_pipelines = 0
             with self.__lock:
-                number_of_pipelines = len(self.__pipelines)
                 for pipeline, path in self.__pipelines.items():
                     # Interpolate the path
                     path_index = 0
@@ -62,13 +62,16 @@ try:
                         plot_path.append(loss)
                         if loss < global_min[1]:
                             global_min = (id_, loss)
-                    # Plot the results
-                    pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
+                    if plot_path[-1] < float("inf"):
+                        # Plot the results
+                        pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
+                    else:
+                        number_of_pipelines += 1
             # And annotate the global minimum
             pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points", xytext=(1, 25),
                             arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
 
-            if number_of_pipelines <= 4:
+            if number_of_pipelines <= 10:
                 # Plot only a legend if the number of pipelines is
                 # at most 4, because otherwise we don't see anything from the graph
                 pyplot.legend(fancybox=True, framealpha=0.3, fontsize="small")
