@@ -42,6 +42,11 @@ try:
                             path[i][1] = loss
 
         def __update(self):
+            # Get the current pipeline items
+            with self.__lock:
+                pipelines = self.__pipelines.items()
+
+            # Create a figure to plot to
             figure = pyplot.figure(figsize=(11, 8), dpi=80)
             figure.set_tight_layout(True)
             pyplot.xlabel("Trial number")
@@ -50,31 +55,30 @@ try:
 
             global_min = (0, float("inf"))
             number_of_pipelines = 0
-            with self.__lock:
-                for pipeline, path in self.__pipelines.items():
-                    # Interpolate the path
-                    path_index = 0
-                    plot_path = []
-                    for i in range(self.__number_of_trials[pipeline] + 1):
-                        if path_index + 1 < len(path) and path[path_index + 1][0] <= i:
-                            path_index += 1
-                        id_, loss = path[path_index]
-                        plot_path.append(loss)
-                        if loss < global_min[1]:
-                            global_min = (id_, loss)
-                    if plot_path[-1] < float("inf"):
-                        # Plot the results
-                        pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
-                    else:
-                        number_of_pipelines += 1
+            for pipeline, path in pipelines:
+                # Interpolate the path
+                path_index = 0
+                plot_path = []
+                for i in range(self.__number_of_trials[pipeline] + 1):
+                    if path_index + 1 < len(path) and path[path_index + 1][0] <= i:
+                        path_index += 1
+                    id_, loss = path[path_index]
+                    plot_path.append(loss)
+                    if loss < global_min[1]:
+                        global_min = (id_, loss)
+                if plot_path[-1] < float("inf"):
+                    # Plot the results
+                    pyplot.plot(range(len(plot_path)), plot_path, label="%s" % pipeline)
+                else:
+                    number_of_pipelines += 1
             # And annotate the global minimum
-            pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points", xytext=(1, 25),
+            pyplot.annotate("%.3f" % global_min[1], xy=global_min, textcoords="offset points", xytext=(-1, 25),
                             arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
 
             if number_of_pipelines <= 10:
                 # Plot only a legend if the number of pipelines is
-                # at most 4, because otherwise we don't see anything from the graph
-                pyplot.legend(fancybox=True, framealpha=0.3, fontsize="small")
+                # at most 10, because otherwise we don't see anything from the graph
+                pyplot.legend(fancybox=True, framealpha=0.3, fontsize="small", loc="best")
             pyplot.savefig(self.__file_path, format="pdf", transparent=True)
             # Clear the figure for next plot
             pyplot.clf()
