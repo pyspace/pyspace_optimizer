@@ -137,7 +137,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
     samples hyperparamter settings for them and evaluates these to find the best
     performing processing pipeline.
     """
-    def __init__(self, task, backend, best_result_file):
+    def __init__(self, task, backend="serial", best_result_file=None):
         super(HyperoptOptimizer, self).__init__(task, backend, best_result_file)
 
     # noinspection PyBroadException
@@ -171,7 +171,7 @@ class HyperoptOptimizer(PySPACEOptimizer):
         pool = OptimizerPool(processes=self._task["max_parallel_pipelines"])
         return self._do_optimization(pool)
 
-    def _create_node(self, node_name):
+    def create_node(self, node_name):
         if is_sink_node(node_name):
             return ClassificationSinkNodeParameterSpace(node_name=node_name, task=self._task)
         elif is_source_node(node_name):

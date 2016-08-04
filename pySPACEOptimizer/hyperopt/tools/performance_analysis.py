@@ -17,7 +17,10 @@ matplotlib.use("Qt4Agg")
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg, NavigationToolbar2QT
 # noinspection PyPackageRequirements
 from matplotlib import pyplot
+from pySPACEOptimizer.hyperopt.optimizer import HyperoptOptimizer
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
+from pySPACEOptimizer.framework import task_from_yaml
+from pySPACEOptimizer.core import NodeListGenerator, NodeChainParameterSpace
 
 
 class NoValidExperiment(Exception):
@@ -32,7 +35,8 @@ class PipelineList(QtGui.QListWidget):
     # noinspection PyUnresolvedReferences
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
-        self.addItems([pipeline.replace("_", "-") for pipeline in pipelines.keys()])
+        self.__pipelines = {str(hash(pipeline)): pipeline for pipeline in pipelines}
+        self.addItems(self.__pipelines.keys())
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
@@ -43,10 +47,10 @@ class PipelineList(QtGui.QListWidget):
 
     def selection_changed(self):
         if self.__callback is not None:
-            self.__callback([unicode(item.text().replace("-", "_")) for item in self.selectedItems()])
+            self.__callback([self.__pipelines[unicode(item.text())] for item in self.selectedItems()])
 
     def select_pipeline(self, pipeline):
-        items = self.findItems(pipeline.replace("_", "-"), QtCore.Qt.MatchExactly)
+        items = self.findItems(unicode(hash(pipeline)), QtCore.Qt.MatchExactly)
         if items:
             items[0].setSelected(True)
 
@@ -81,7 +85,8 @@ class PipelineGraph(QtGui.QWidget):
         vbox.addWidget(nav_bar_container)
         self.setLayout(vbox)
 
-        self.__artists = {pipeline: None for pipeline in pipelines.keys()}
+        self.__pipelines = {unicode(hash(pipeline)): pipeline for pipeline in pipelines}
+        self.__artists = {pipeline: None for pipeline in pipelines}
         self.__selected_pipelines = self.__artists.keys()
         self.__mouse_artist = None
         self.__trial_artist = None
@@ -124,7 +129,7 @@ class PipelineGraph(QtGui.QWidget):
                         self.__averages[pipeline].append(float("inf"))
             if self.__artists[pipeline] is None:
                 self.__artists[pipeline] = self.__axes.plot(tids[pipeline], self.__averages[pipeline],
-                                                            label=pipeline.replace("_", "-"), picker=5)[0]
+                                                            label=hash(pipeline), picker=5)[0]
             else:
                 self.__artists[pipeline].set_data([tids[pipeline], self.__averages[pipeline]])
 
@@ -148,7 +153,7 @@ class PipelineGraph(QtGui.QWidget):
         if self.__best_artist is None and best != float("inf"):
                 self.__best_artist = self.__axes.plot(bests.keys(), total_bests, label="Best loss")[0]
                 self.__best_annotation = self.__axes.annotate("%.3f" % best, xy=(best_id, best),
-                                                              textcoords="offset points", xytext=(1, 25),
+                                                              textcoords="offset points", xytext=(0, -20),
                                                               arrowprops=dict(arrowstyle="->", connectionstyle="arc3"))
         elif best != float("inf"):
             self.__best_artist.set_data([bests.keys(), total_bests])
@@ -162,13 +167,13 @@ class PipelineGraph(QtGui.QWidget):
             self.__best_annotation.set_visible(False)
 
     def __handle_pick(self, event):
-        if self.__pick_callback is not None:
+        if self.__pick_callback is not None and event.xdata is not None:
             self.__pick_callback(int(event.xdata))
 
     def _handle_select(self, event):
         if self.__select_callback is not None:
             if isinstance(event.artist, pyplot.Line2D):
-                self.__select_callback(event.artist.get_label().replace("-", "_"))
+                self.__select_callback(self.__pipelines[event.artist.get_label()])
 
     def _move_mouse(self, event):
         pipeline_data = self.__averages[self.__selected_pipelines[0]]
@@ -263,8 +268,7 @@ class PipelineTable(QtGui.QTableWidget):
         self.itemSelectionChanged.connect(self.selection_changed)
 
     def save_trial(self):
-        pipeline = self.__pipelines[self.__selected_pipeline]
-        if pipeline is not None:
+        if self.__selected_pipeline is not None:
             # Open a file dialog and get the filename to save the result to
             # noinspection PyCallByClass,PyTypeChecker
             file_name = QtGui.QFileDialog.getSaveFileName(self, self.tr("Save YAML as..."),
@@ -274,7 +278,7 @@ class PipelineTable(QtGui.QTableWidget):
                 if not file_name.split("."):
                     file_name += ".yaml"
                 trial = self.__trials[self.__selected_pipeline][self.selectedItems()[0].row()]
-                operation_spec = pipeline.operation_spec(trial.parameters(pipeline))
+                operation_spec = self.__selected_pipeline.operation_spec(trial.parameters(self.__selected_pipeline))
                 with open(file_name, "wb") as save_file:
                     save_file.write(operation_spec["base_file"])
         else:
@@ -300,26 +304,19 @@ class PipelineTable(QtGui.QTableWidget):
         if pipeline in self.__trials:
             if self.__trials[pipeline]:
                 self.__selected_pipeline = pipeline
-                pipeline_obj = self.__pipelines[pipeline]
-                if pipeline_obj is not None:
-                    parameter_names = self.__trials[pipeline][0].parameters(pipeline_obj).keys()
-                else:
-                    parameter_names = self.__trials[pipeline][0]["misc"]["vals"].keys()
-
+                parameter_names = self.__trials[pipeline][0].parameters(pipeline).keys()
                 self.setColumnCount(len(parameter_names) + 1)
                 self.setHorizontalHeaderLabels(["Loss"] + parameter_names)
                 for trial in self.__trials[pipeline]:
                     if trial.id >= self.rowCount():
                         self.insertRow(trial.id)
                     self.setItem(trial.id, 0, QtGui.QTableWidgetItem("{loss:.3f}".format(loss=trial.loss)))
-                    if pipeline_obj is not None:
-                        parameters = trial.parameters(pipeline_obj)
-                    else:
-                        parameters = {key: value[0] for key, value in trial["misc"]["vals"].items()}
+                    parameters = trial.parameters(pipeline)
                     for i, parameter in enumerate(parameter_names, 1):
                         self.setItem(trial.id, i, QtGui.QTableWidgetItem("{parameter!s}".format(
                             parameter=parameters[parameter])))
-                self.resizeRowsToContents()
+#                self.resizeRowsToContents()
+#                self.resizeColumnsToContents()
 
     def select_trial(self, tid):
         if 0 <= tid < self.rowCount():
@@ -327,29 +324,30 @@ class PipelineTable(QtGui.QTableWidget):
 
 
 class PerformanceAnalysisWidget(QtGui.QWidget):
-    def __init__(self, experiment, parent=None):
+    def __init__(self, task, parent=None):
         super(PerformanceAnalysisWidget, self).__init__(parent)
-        self.__experiment = experiment
         # Search for the pipelines
-        self.__pipelines = {}
+        self.__pipelines = []
         self.__trials = {}
-        if experiment is not None and os.path.isdir(experiment):
-            for element in os.listdir(experiment):
-                if os.path.isdir(os.path.join(experiment, element)):
-                    trials = PersistentTrials(os.path.join(self.__experiment, element), fn=None, space=None,
-                                              recreate=False)
-                    for trial in trials:
-                        if trial.loss < float("inf"):
-                            self.__trials[element] = trials
-                            self.__pipelines[element] = self.__trials[element].attachments.get("pipeline", None)
-                            break
+        average = 0
+        if task is not None and os.path.isfile(task):
+            try:
+                with open(task, "rb") as task_file:
+                    self.__task = task_from_yaml(task_file)
+            except Exception:
+                raise NoValidExperiment(experiment=task)
 
-        average = 1
-        # Get the average according to the step size in the task
-        for pipeline in self.__pipelines.values():
-            if pipeline is not None:
-                average = pipeline.configuration["evaluations_per_pass"]
-                break
+            for node_chain in NodeListGenerator(self.__task):
+                pipeline = NodeChainParameterSpace(configuration=self.__task,
+                                                   node_list=[HyperoptOptimizer(self.__task).create_node(node_name)
+                                                              for node_name in node_chain])
+                trials = PersistentTrials(trials_dir=pipeline.base_result_dir, fn=lambda _: float("inf"), space=[],
+                                          recreate=False)
+                if trials.best_trial.loss < float("inf"):
+                    self.__pipelines.append(pipeline)
+                    self.__trials[pipeline] = trials
+            # Get the average according to the step size in the task
+            average = self.__task["evaluations_per_pass"]
 
         # Create the widgets
         self.__list_view = PipelineList(pipelines=self.__pipelines, callback=self._change_pipelines, parent=self)
@@ -388,19 +386,22 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
 
 
 class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
-    def __init__(self, experiment=None, parent=None):
+    def __init__(self, task=None, parent=None):
         super(PerformanceAnalysisMainWindow, self).__init__(parent)
         self.resize(1024, 768)
         self.setWindowTitle(self.tr("Optimizer performance analysis"))
         self._init_menu_and_status_bar()
-        self.__central_widget = PerformanceAnalysisWidget(experiment, self)
-        self.setCentralWidget(self.__central_widget)
+        self.__open_error = QtGui.QMessageBox()
+        self.__open_error.setIcon(QtGui.QMessageBox.Critical)
+        self.__open_error.setWindowTitle("Error opening the optimization task")
+        self.__open_error.setText("Can not open the optimization task.")
+        self.setCentralWidget(PerformanceAnalysisWidget(task, self))
 
     def _init_menu_and_status_bar(self):
         self.statusBar()
         open_action = QtGui.QAction(self.tr("&Open"), self)
         open_action.setShortcut("Alt+O")
-        open_action.setStatusTip(self.tr("Open a new experiment"))
+        open_action.setStatusTip(self.tr("Open a new optimization task"))
         # noinspection PyUnresolvedReferences
         open_action.triggered.connect(self._open_experiment)
 
@@ -418,20 +419,24 @@ class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
 
     def _open_experiment(self):
         # noinspection PyTypeChecker,PyCallByClass
-        experiment = unicode(QtGui.QFileDialog.getExistingDirectory(self, self.tr("Select experiment"),
-                                                                    pySPACE.configuration.storage))
-        if experiment:
+        task = QtGui.QFileDialog.getOpenFileName(self, self.tr("Select optimization task"),
+                                                 pySPACE.configuration.spec_dir,
+                                                 self.tr("YAML Files (*.yaml);;All files (*)"))
+        if task:
             # Replace the central widget
-            del self.__central_widget
-            self.__central_widget = PerformanceAnalysisWidget(experiment=experiment, parent=self)
-            self.setCentralWidget(self.__central_widget)
+            try:
+                central_widget = PerformanceAnalysisWidget(task=unicode(task), parent=self)
+                self.setCentralWidget(central_widget)
+            except NoValidExperiment, error:
+                self.__open_error.setInformativeText(unicode(error))
+                self.__open_error.show()
 
 
 def create_parser():
     arg_parser = ArgumentParser(prog=__file__)
     arg_parser.add_argument("-c", "--config", type=str, default=None, help="The pySPACE configuration to use")
-    arg_parser.add_argument("-e", "--experiment", type=str, default=None,
-                            help="The path to the experiment results to analyse")
+    arg_parser.add_argument("-t", "--task", type=str, default=None,
+                            help="The path to the optimization task to analyse")
     return arg_parser
 
 
@@ -442,6 +447,6 @@ if __name__ == "__main__":
     if arguments.config:
         pySPACE.load_configuration(conf_file_name=arguments.config)
     app = QtGui.QApplication(unknown_args)
-    main = PerformanceAnalysisMainWindow(experiment=arguments.experiment)
+    main = PerformanceAnalysisMainWindow(task=arguments.task)
     main.show()
     sys.exit(app.exec_())

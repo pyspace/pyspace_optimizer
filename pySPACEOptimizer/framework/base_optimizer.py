@@ -69,7 +69,7 @@ class PySPACEOptimizer(object):
         def stop(self):
             self.__optimizer.queue.put(PySPACEOptimizer.QueueReader.SENTINEL_VALUE)
 
-    def __init__(self, task, backend, best_result_file):
+    def __init__(self, task, backend="serial", best_result_file=None):
         """
         :type task: Task
         :type backend: str
@@ -127,7 +127,7 @@ class PySPACEOptimizer(object):
             for node_list in NodeListGenerator(self._task):
                 self.logger.debug("Testing NodeChainParameterSpace: %s", node_list)
                 pipeline = NodeChainParameterSpace(configuration=self._task,
-                                                   node_list=[self._create_node(node) for node in node_list])
+                                                   node_list=[self.create_node(node) for node in node_list])
                 self.__pipelines.append(pipeline)
                 self.__queue_reader.set_number_of_pipelines(len(self.__pipelines))
                 yield pipeline
@@ -136,7 +136,7 @@ class PySPACEOptimizer(object):
                 yield pipeline
 
     @abc.abstractmethod
-    def _create_node(self, node_name):
+    def create_node(self, node_name):
         """
         Instantiate a concrete NodeParameterSpace instance for the node with the given `node_name`.
         This has to be implemented by a subclass to instantiate it's concrete NodeParameterSpace subclass.
