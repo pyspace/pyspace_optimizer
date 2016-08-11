@@ -118,7 +118,7 @@ class NodeParameterSpace(object):
         :return: A unique name for the given parameter.
         :rtype: str
         """
-        return "{node_name}_{parameter}".format(
+        return "__{node_name}_{parameter}__".format(
             node_name=self.name,
             parameter=parameter
         )
