@@ -82,6 +82,26 @@ class NodeChainParameterSpace(object):
             space.update(node.parameter_space())
         return space
 
+    def required_parameters(self):
+        """
+        Returns a dictionary containing the name of the nodes
+        and their parameters that contain parameters without
+        default values.
+
+        The parameters returned by this method need to be set
+        by the user in a valid task description to make this
+        processing pipeline executable.
+
+        :return: A dict containing the name and parameters without default values
+        :rtype: dict[str, list[str]]
+        """
+        result = {}
+        for node in self._nodes:
+            params_without_default = node.parameters_without_default()
+            if params_without_default:
+                result[node.name] = params_without_default
+        return result
+
     def operation_spec(self, parameter_settings=None):
         """
         Return the pipeline as an operation specification usable for pySPACE execution.

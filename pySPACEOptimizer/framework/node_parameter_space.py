@@ -46,6 +46,29 @@ class NodeParameterSpace(object):
                                               arg.lower().find("warn") == -1])
         return self.__parameters
 
+
+    def parameters_without_default(self):
+        """
+        Returns a list of parameter names that don't have a default value defined
+        in the __init__ method.
+
+        This method checks only the most derived class and not it's ancestors, because
+        the __init__ method of the derived class may set required variables of it's base
+        classes. Because of this, not all required parameters might be found. But this
+        indicates a bad algorithm design then.
+
+        :return: A list of parameters that don't have a default values assigned
+        :rtype: list[str]
+        """
+        result = []
+        if hasattr(self.class_, "__init__"):
+            argspec = inspect.getargspec(self.class_.__init__)
+            # Exclude the first ("self") parameter has this gets
+            # the value passed from the interpreter
+            args_without_default = argspec.args[:len(argspec.defaults) + 1]
+            result.extend(args_without_default)
+        return result
+
     def parameter_space(self):
         """
         Returns a dictionary of all parameters of this node and their default values.
