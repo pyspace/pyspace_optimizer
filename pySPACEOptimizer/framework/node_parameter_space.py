@@ -65,7 +65,10 @@ class NodeParameterSpace(object):
             argspec = inspect.getargspec(self.class_.__init__)
             # Exclude the first ("self") parameter has this gets
             # the value passed from the interpreter
-            args_without_default = argspec.args[:len(argspec.defaults) + 1]
+            if argspec.defaults is not None:
+                args_without_default = argspec.args[:len(argspec.defaults) + 1]
+            else:
+                args_without_default = argspec.args[1:]
             result.extend(args_without_default)
         return result
 
