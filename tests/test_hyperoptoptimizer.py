@@ -15,12 +15,10 @@ class HyperoptOptimizerTestCase(PySPACETestCase):
                          evaluations_per_pass=1,
                          source_node="FeatureVectorSourceNode",
                          whitelist=["SorSvmNode"],
-                         parameter_ranges=[{"node": "SorSvmNode",
-                                            "parameters": {
+                         parameter_ranges={"SorSvmNode": {
                                                 "complexity": 1,
                                                 "max_iterations": 10
-                                            }}
-                                           ])
+                                           }})
         task = task_factory(task_spec)
         optimizer = optimizer_factory(task, backend="mcore")
         best_params = optimizer.optimize()

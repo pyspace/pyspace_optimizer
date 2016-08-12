@@ -84,7 +84,7 @@ class Task(dict):
             "blacklist": set(blacklist) if blacklist is not None else set(),
             "forced_nodes": set(forced_nodes) if forced_nodes is not None else set(),
             "node_weights": dict(node_weights) if node_weights is not None else dict(),
-            "parameter_ranges": parameter_ranges if parameter_ranges is not None else [],
+            "parameter_ranges": parameter_ranges if parameter_ranges is not None else {},
             "max_eval_time": max_eval_time,
             "window_size": window_size,
             "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name),
@@ -233,13 +233,7 @@ class Task(dict):
 
     def default_parameters(self, node):
         # :type node: NodeParameterSpace
-        definitions = [parameter_range for parameter_range in self["parameter_ranges"]
-                       if parameter_range["node"] == node.name]
-        if definitions:
-            result = definitions[0]["parameters"]
-        else:
-            result = {}
-
+        result = self["parameter_ranges"].get(node.name, {})
         if "class_labels" in node.parameters:
             result["class_labels"] = [self["class_labels"]]
         if "erp_class_label" in node.parameters:

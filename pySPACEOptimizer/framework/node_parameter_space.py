@@ -46,30 +46,32 @@ class NodeParameterSpace(object):
                                               arg.lower().find("warn") == -1])
         return self.__parameters
 
-
-    def parameters_without_default(self):
+    def parameters_without_value(self):
         """
-        Returns a list of parameter names that don't have a default value defined
-        in the __init__ method.
+        Returns a list of parameter names that don't have a value defined for them.
 
-        This method checks only the most derived class and not it's ancestors, because
-        the __init__ method of the derived class may set required variables of it's base
-        classes. Because of this, not all required parameters might be found. But this
-        indicates a bad algorithm design then.
+        This method checks whether all parameters defines by this class have a
+        corresponding distribution assigned to them in the parameter space. This
+        distribution can either be assigned by the algorithm itself or by the
+        optimization task to execute.
 
-        :return: A list of parameters that don't have a default values assigned
+        :return: A list of parameters that don't have values assigned
         :rtype: list[str]
         """
         result = []
-        if hasattr(self.class_, "__init__"):
-            argspec = inspect.getargspec(self.class_.__init__)
-            # Exclude the first ("self") parameter has this gets
-            # the value passed from the interpreter
-            if argspec.defaults is not None:
-                args_without_default = argspec.args[:len(argspec.defaults) + 1]
-            else:
-                args_without_default = argspec.args[1:]
-            result.extend(args_without_default)
+        parameter_space = self.parameter_space()
+        for class_ in inspect.getmro(self.class_):
+            if class_ != object and hasattr(class_, "__init__"):
+                argspec = inspect.getargspec(class_.__init__)
+                if argspec.defaults is None:
+                    arg_len = 1
+                else:
+                    arg_len = len(argspec.defaults) + 1
+                # Now check all arguments that don't have default values
+                # These need to be set by the parameter space
+                for arg in argspec.args[arg_len:]:
+                    if self._make_parameter_name(arg) not in parameter_space:
+                        result.append(arg)
         return result
 
     def parameter_space(self):
@@ -165,8 +167,9 @@ class NodeParameterSpace(object):
 
 
 class SinkNodeParameterSpace(NodeParameterSpace):
-   def parameter_space(self):
+    def parameter_space(self):
         return {self._make_parameter_name(parameter): parameter for parameter in self._values}
+
 
 class SourceNodeParameterSpace(NodeParameterSpace):
     def parameter_space(self):

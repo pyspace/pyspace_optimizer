@@ -82,24 +82,24 @@ class NodeChainParameterSpace(object):
             space.update(node.parameter_space())
         return space
 
-    def required_parameters(self):
+    def unset_parameters(self):
         """
-        Returns a dictionary containing the name of the nodes
-        and their parameters that contain parameters without
-        default values.
+        Returns a dictionary containing the nodes and
+        their parameters that have not been set either
+        by the nodes or the optimization task.
 
         The parameters returned by this method need to be set
         by the user in a valid task description to make this
         processing pipeline executable.
 
-        :return: A dict containing the name and parameters without default values
-        :rtype: dict[str, list[str]]
+        :return: A dict containing the node and parameters without values
+        :rtype: dict[NodeParameterSpace, list[str]]
         """
         result = {}
         for node in self._nodes:
-            params_without_default = node.parameters_without_default()
+            params_without_default = node.parameters_without_value()
             if params_without_default:
-                result[node.name] = params_without_default
+                result[node] = params_without_default
         return result
 
     def operation_spec(self, parameter_settings=None):
