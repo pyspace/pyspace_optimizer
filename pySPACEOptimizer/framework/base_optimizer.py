@@ -128,16 +128,9 @@ class PySPACEOptimizer(object):
                 self.logger.debug("Testing NodeChainParameterSpace: %s", node_list)
                 pipeline = NodeChainParameterSpace(configuration=self._task,
                                                    node_list=[self.create_node(node) for node in node_list])
-                unset_parameters = pipeline.unset_parameters()
-                if unset_parameters:
-                    for node, parameters in unset_parameters.items():
-                        self.__logger.warning("The parameters '%s' for node '%s' have not been set!"
-                                              % (parameters, node.name))
-                    self.__logger.warning("Ignoring this pipeline")
-                else:
-                    self.__pipelines.append(pipeline)
-                    self.__queue_reader.set_number_of_pipelines(len(self.__pipelines))
-                    yield pipeline
+                self.__pipelines.append(pipeline)
+                self.__queue_reader.set_number_of_pipelines(len(self.__pipelines))
+                yield pipeline
         else:
             for pipeline in self.__pipelines:
                 yield pipeline

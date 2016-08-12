@@ -11,6 +11,7 @@ import pySPACE
 from pySPACE.missions.nodes import DEFAULT_NODE_MAPPING
 from pySPACE.resources.dataset_defs.base import BaseDataset
 
+from pySPACEOptimizer.framework.node_parameter_space import NodeParameterSpace
 
 __all__ = ["Task", "is_source_node", "is_splitter_node", "is_sink_node", "get_node_type"]
 
@@ -104,6 +105,16 @@ class Task(dict):
         # Create the base result dir
         if not os.path.isdir(self.base_result_dir):
             os.makedirs(self.base_result_dir)
+
+        # Now check all valid nodes for unset parameters
+        # and blacklist them from the set of valid nodes
+        for node_name in self.nodes:
+            node = NodeParameterSpace(node_name, self)
+            parameters_without_value = node.parameters_without_value()
+            if parameters_without_value:
+                self._logger.warning("The parameters '%s' of node '%s' have not been set. "
+                                     "Ignoring this node." % (parameters_without_value, node_name))
+                self["blacklist"].add(node_name)
 
     def log_task(self):
         format_ = pprint.pformat(self, indent=4)

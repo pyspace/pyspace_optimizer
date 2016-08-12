@@ -82,26 +82,6 @@ class NodeChainParameterSpace(object):
             space.update(node.parameter_space())
         return space
 
-    def unset_parameters(self):
-        """
-        Returns a dictionary containing the nodes and
-        their parameters that have not been set either
-        by the nodes or the optimization task.
-
-        The parameters returned by this method need to be set
-        by the user in a valid task description to make this
-        processing pipeline executable.
-
-        :return: A dict containing the node and parameters without values
-        :rtype: dict[NodeParameterSpace, list[str]]
-        """
-        result = {}
-        for node in self._nodes:
-            params_without_default = node.parameters_without_value()
-            if params_without_default:
-                result[node] = params_without_default
-        return result
-
     def operation_spec(self, parameter_settings=None):
         """
         Return the pipeline as an operation specification usable for pySPACE execution.
