@@ -21,7 +21,7 @@ def create_parser():
     parser.add_argument("-c", "--config", type=str, help="The name of the pySPACEcenter configuration to load",
                         default="config.yaml")
     parser.add_argument("-t", "--task", type=FileType("rb"),
-                        help="The path to a task description in YAML format", required=True)
+                        help="The path to a task description in YAML format")
     parser.add_argument("-r", "--result", type=str, default=None,
                         help="The path to store the results (logging, performance, trials, ...) to")
     parser.add_argument("-b", "--backend", type=str, default="serial",
