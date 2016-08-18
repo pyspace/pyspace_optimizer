@@ -39,7 +39,7 @@ def is_sink_node(node_name):
 class Task(dict):
 
     def __init__(self, name, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
-                 max_pipeline_length=3, max_eval_time=0, passes=1, metric="Percent_incorrect", source_node=None,
+                 max_pipeline_length=3, max_eval_time=0, passes=1, source_node=None,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, window_size=None, max_loss=float("inf"), check_after=100,
                  max_parallel_pipelines=None, **kwargs):
@@ -80,8 +80,7 @@ class Task(dict):
             "source_node": source_node,
             "sink_node": sink_node,
             "optimizer": optimizer,
-            "metric": metric,
-            "whitelist": set(whitelist) if whitelist is not None else set(),
+           "whitelist": set(whitelist) if whitelist is not None else set(),
             "blacklist": set(blacklist) if blacklist is not None else set(),
             "forced_nodes": set(forced_nodes) if forced_nodes is not None else set(),
             "node_weights": dict(node_weights) if node_weights is not None else dict(),

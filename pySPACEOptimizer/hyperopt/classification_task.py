@@ -8,7 +8,8 @@ def is_classification_task_node(node_name):
 
 
 class ClassificationTask(Task):
-    def __init__(self, name, input_path, evaluations_per_pass, class_labels, main_class, **kwargs):
+    def __init__(self, name, input_path, evaluations_per_pass, class_labels, main_class,
+                 metric="Percent_incorrect", is_performance_metric=False, **kwargs):
         super(ClassificationTask, self).__init__(name, input_path, evaluations_per_pass, **kwargs)
 
         if not isinstance(class_labels, list):
@@ -16,8 +17,10 @@ class ClassificationTask(Task):
         if main_class not in class_labels:
             raise ValueError("The main class is not defined as a class label")
         self.update({"class_labels": tuple(class_labels),
-                     "main_class": main_class})
-
+                     "main_class": main_class,
+                     "metric": metric,
+                     "is_performance_metric": is_performance_metric})
+ 
     @property
     def required_node_types(self):
         node_types = super(ClassificationTask, self).required_node_types
