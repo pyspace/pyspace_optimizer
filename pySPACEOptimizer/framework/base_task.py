@@ -245,14 +245,6 @@ class Task(dict):
         # :type node: NodeParameterSpace
         return self["parameter_ranges"].get(node.name, {})
 
-        if "class_labels" in node.parameters:
-            result["class_labels"] = [self["class_labels"]]
-        if "erp_class_label" in node.parameters:
-            result["erp_class_label"] = [self["main_class"]]
-        if "metric" in node.parameters:
-            result["metric"] = [self["metric"]]
-        return result
-
     @property
     def base_result_dir(self):
         return self["result_dir"]

@@ -78,7 +78,7 @@ class NodeChainParameterSpace(object):
         :rtype: dict[str, str]
         """
         space = {}
-        for node in self._nodes[1:-1]:
+        for node in self._nodes:
             space.update(node.parameter_space())
         return space
 

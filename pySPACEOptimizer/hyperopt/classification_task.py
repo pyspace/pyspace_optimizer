@@ -41,12 +41,13 @@ class ClassificationTask(Task):
     def default_parameters(self, node):
         # :type node: NodeParameterSpace
         result = super(ClassificationTask, self).default_parameters(node)
-        if "class_labels" in node.parameters:
-            result["class_labels"] = [self["class_labels"]]
-        if "erp_class_label" in node.parameters:
-            result["erp_class_label"] = [self["main_class"]]
-        if "metric" in node.parameters:
-            result["metric"] = [self["metric"]]
+        for parameter in node.parameters.keys():
+            if parameter in ["class_labels", "classes_labels"]:
+                result[parameter] = [self["class_labels"]]
+            elif parameter in ["erp_class_label", "ir_class"]:
+                result[parameter] = [self["main_class"]]
+            elif parameter == "metric":
+                result[parameter] = [self["metric"]]
         return result
 
 

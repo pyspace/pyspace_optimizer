@@ -16,7 +16,7 @@ from pySPACEOptimizer.core.optimizer_pool import OptimizerPool
 from pySPACEOptimizer.framework.base_optimizer import PySPACEOptimizer
 from pySPACEOptimizer.framework.base_task import is_sink_node, is_source_node
 from pySPACEOptimizer.hyperopt.hyperopt_node_parameter_space import HyperoptNodeParameterSpace, \
-    ClassificationSinkNodeParameterSpace, ClassificationSourceNodeParameterSpace
+    HyperoptSourceNodeParameterSpace, HyperoptSinkNodeParameterSpace
 from pySPACEOptimizer.hyperopt.persistent_trials import PersistentTrials
 from pySPACEOptimizer.utils import output_logger, FileLikeLogger
 
@@ -173,9 +173,9 @@ class HyperoptOptimizer(PySPACEOptimizer):
 
     def create_node(self, node_name):
         if is_sink_node(node_name):
-            return ClassificationSinkNodeParameterSpace(node_name=node_name, task=self._task)
+            return HyperoptSinkNodeParameterSpace(node_name=node_name, task=self._task)
         elif is_source_node(node_name):
-            return ClassificationSourceNodeParameterSpace(node_name=node_name, task=self._task)
+            return HyperoptSourceNodeParameterSpace(node_name=node_name, task=self._task)
         else:
             return HyperoptNodeParameterSpace(node_name=node_name, task=self._task)
 
