@@ -243,7 +243,8 @@ class Task(dict):
 
     def default_parameters(self, node):
         # :type node: NodeParameterSpace
-        result = self["parameter_ranges"].get(node.name, {})
+        return self["parameter_ranges"].get(node.name, {})
+
         if "class_labels" in node.parameters:
             result["class_labels"] = [self["class_labels"]]
         if "erp_class_label" in node.parameters:

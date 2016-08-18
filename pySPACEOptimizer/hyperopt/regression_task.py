@@ -25,3 +25,9 @@ class RegressionTask(Task):
                 nodes[node] = class_
         return nodes
 
+    def default_parameters(self, node):
+        # :type node: NodeParameterSpace
+        result = super(RegressionTask, self).default_parameters(node)
+        if "evaluation_type" in node.parameters:
+            result["evaluation_type"] = "regression"
+        return result

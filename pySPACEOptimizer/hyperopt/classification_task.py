@@ -38,6 +38,17 @@ class ClassificationTask(Task):
                 nodes[node] = class_
         return nodes
 
+    def default_parameters(self, node):
+        # :type node: NodeParameterSpace
+        result = super(ClassificationTask, self).default_parameters(node)
+        if "class_labels" in node.parameters:
+            result["class_labels"] = [self["class_labels"]]
+        if "erp_class_label" in node.parameters:
+            result["erp_class_label"] = [self["main_class"]]
+        if "metric" in node.parameters:
+            result["metric"] = [self["metric"]]
+        return result
+
 
 class ClassificationTaskWithoutScikit(ClassificationTask):
     @property
