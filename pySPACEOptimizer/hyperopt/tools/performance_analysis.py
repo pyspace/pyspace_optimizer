@@ -35,7 +35,7 @@ class PipelineList(QtGui.QListWidget):
     # noinspection PyUnresolvedReferences
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
-        self.__pipelines = {str(hash(pipeline)): pipeline for pipeline in pipelines}
+        self.__pipelines = {repr(pipeline): pipeline for pipeline in pipelines}
         self.addItems(self.__pipelines.keys())
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -50,7 +50,7 @@ class PipelineList(QtGui.QListWidget):
             self.__callback([self.__pipelines[unicode(item.text())] for item in self.selectedItems()])
 
     def select_pipeline(self, pipeline):
-        items = self.findItems(unicode(hash(pipeline)), QtCore.Qt.MatchExactly)
+        items = self.findItems(repr(pipeline), QtCore.Qt.MatchExactly)
         if items:
             items[0].setSelected(True)
 
@@ -341,9 +341,9 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
                 pipeline = NodeChainParameterSpace(configuration=self.__task,
                                                    node_list=[HyperoptOptimizer(self.__task).create_node(node_name)
                                                               for node_name in node_chain])
-                trials = PersistentTrials(trials_dir=pipeline.base_result_dir, fn=lambda _: float("inf"), space=[],
-                                          recreate=False)
-                if trials.best_trial.loss < float("inf"):
+                trials = PersistentTrials(trials_dir=pipeline.base_result_dir, fn=None,
+                                          space=["dummy"], recreate=False)
+                if trials.trials and trials.best_trial.loss < float("inf"):
                     self.__pipelines.append(pipeline)
                     self.__trials[pipeline] = trials
             # Get the average according to the step size in the task
@@ -435,7 +435,7 @@ class PerformanceAnalysisMainWindow(QtGui.QMainWindow):
 def create_parser():
     arg_parser = ArgumentParser(prog=__file__)
     arg_parser.add_argument("-c", "--config", type=str, default=None, help="The pySPACE configuration to use")
-    arg_parser.add_argument("-t", "--task", type=str, default=None,
+    arg_parser.add_argument("task", nargs="?", type=str, default=None,
                             help="The path to the optimization task to analyse")
     return arg_parser
 

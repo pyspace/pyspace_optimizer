@@ -97,10 +97,10 @@ class PersistentTrials(Trials):
             self.refresh()
 
     def _load_attachments(self):
-        if os.path.isfile(self._attachments_file):
+        try:
             with open(self._attachments_file, "rb") as attachments_file:
                 return load(attachments_file)
-        else:
+        except:
             # Don't throw any trials away
             return self.attachments
 
@@ -109,10 +109,10 @@ class PersistentTrials(Trials):
             dump(self.attachments, attachments_file)
 
     def _load_trials(self):
-        if os.path.isfile(self._trials_file):
+        try:
             with open(self._trials_file, "rb") as trials_file:
                 return load(trials_file)
-        else:
+        except:
             # Don't throw any trials away
             return self._dynamic_trials
 
