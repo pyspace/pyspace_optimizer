@@ -36,7 +36,8 @@ setup(
         ],
         TASK_ENTRY_POINT: [
             "classification = pySPACEOptimizer.hyperopt.classification_task:ClassificationTask",
-            "classificationWithoutScikit = pySPACEOptimizer.hyperopt.classification_task:ClassificationTaskWithoutScikit"
+            "classificationWithoutScikit = pySPACEOptimizer.hyperopt.classification_task:ClassificationTaskWithoutScikit",
+            "regression = pySPACEOptimizer.hyperopt.regression_task:RegressionTask",
         ]
     },
     classifiers=["Development Status :: 2 - Pre-Alpha",
