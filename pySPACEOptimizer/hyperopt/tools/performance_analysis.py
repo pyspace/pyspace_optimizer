@@ -35,7 +35,7 @@ class PipelineList(QtGui.QListWidget):
     # noinspection PyUnresolvedReferences
     def __init__(self, pipelines, callback, parent=None):
         super(PipelineList, self).__init__(parent)
-        self.__pipelines = {repr(pipeline): pipeline for pipeline in pipelines}
+        self.__pipelines = {pipeline.name: pipeline for pipeline in pipelines}
         self.addItems(self.__pipelines.keys())
         self.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Expanding)
         self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -50,7 +50,7 @@ class PipelineList(QtGui.QListWidget):
             self.__callback([self.__pipelines[unicode(item.text())] for item in self.selectedItems()])
 
     def select_pipeline(self, pipeline):
-        items = self.findItems(repr(pipeline), QtCore.Qt.MatchExactly)
+        items = self.findItems(pipeline.name, QtCore.Qt.MatchExactly)
         if items:
             items[0].setSelected(True)
 
@@ -85,7 +85,7 @@ class PipelineGraph(QtGui.QWidget):
         vbox.addWidget(nav_bar_container)
         self.setLayout(vbox)
 
-        self.__pipelines = {unicode(hash(pipeline)): pipeline for pipeline in pipelines}
+        self.__pipelines = {pipeline.name: pipeline for pipeline in pipelines}
         self.__artists = {pipeline: None for pipeline in pipelines}
         self.__selected_pipelines = self.__artists.keys()
         self.__mouse_artist = None
@@ -129,7 +129,7 @@ class PipelineGraph(QtGui.QWidget):
                         self.__averages[pipeline].append(float("inf"))
             if self.__artists[pipeline] is None:
                 self.__artists[pipeline] = self.__axes.plot(tids[pipeline], self.__averages[pipeline],
-                                                            label=hash(pipeline), picker=5)[0]
+                                                            label=pipeline.name, picker=5)[0]
             else:
                 self.__artists[pipeline].set_data([tids[pipeline], self.__averages[pipeline]])
 
