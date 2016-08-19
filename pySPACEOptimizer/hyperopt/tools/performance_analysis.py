@@ -337,8 +337,8 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
             except Exception:
                 raise NoValidExperiment(experiment=task)
 
-            for node_chain in NodeListGenerator(self.__task):
-                pipeline = NodeChainParameterSpace(configuration=self.__task,
+            for name, node_chain in NodeListGenerator(self.__task):
+                pipeline = NodeChainParameterSpace(name=name, configuration=self.__task,
                                                    node_list=[HyperoptOptimizer(self.__task).create_node(node_name)
                                                               for node_name in node_chain])
                 trials = PersistentTrials(trials_dir=pipeline.base_result_dir, fn=None,

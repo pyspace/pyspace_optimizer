@@ -25,11 +25,13 @@ FORMATTER = logging.Formatter(fmt="[%(asctime)s.%(msecs)03d:%(levelname)10s][%(n
 
 class NodeChainParameterSpace(object):
 
-    def __init__(self, configuration, node_list):
+    def __init__(self, name, configuration, node_list):
         """
         Creates a new node with the given `name` and `data_set_path`.
         The pipeline uses the given nodes for processing.
 
+        :param name: The name of the processing pipeline to display in graphics
+        :type name: basestring
         :param configuration: The configuration to use for this Pipeline
         :type configuration: Task
         :param node_list: A list of node names to create the pipeline with
@@ -38,6 +40,7 @@ class NodeChainParameterSpace(object):
         :return: A new PySPACEPipeline with the given name, nodes and data set path
         :rtype: NodeChainParameterSpace
         """
+        self._name = name
         self._nodes = copy.deepcopy(node_list)
         self._input_path = configuration["data_set_path"]
         self.configuration = configuration
@@ -49,7 +52,7 @@ class NodeChainParameterSpace(object):
 
     def log_pipeline(self):
         # Log the pipeline
-        self.logger.info("{object!s} is {object!r}".format(object=self))
+        self.logger.info("{object!r} is {nodes!s}".format(object=self, nodes=self.nodes))
 
     def __patch_logger(self, name, file_name, level):
         logger = logging.getLogger(name)
@@ -61,6 +64,10 @@ class NodeChainParameterSpace(object):
         # add the new handler
         logger.addHandler(new_handler)
         return logger
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def nodes(self):
@@ -121,7 +128,7 @@ class NodeChainParameterSpace(object):
     def logger(self):
         if self._logger is None:
             self._logger = self.__patch_logger(
-                name="pySPACEOptimizer.pipeline.{pipeline}".format(pipeline=self),
+                name="pySPACEOptimizer.pipeline.{pipeline!r}".format(pipeline=self),
                 file_name="pipeline_output.pylog",
                 level=logging.INFO)
         return self._logger
@@ -130,7 +137,7 @@ class NodeChainParameterSpace(object):
     def error_logger(self):
         if self._error_logger is None:
             self._error_logger = self.__patch_logger(
-                name="pySPACEOptimizer.pipeline_errors.{pipeline}".format(pipeline=self),
+                name="pySPACEOptimizer.pipeline_errors.{pipeline!r}".format(pipeline=self),
                 file_name="pipeline_errors.pylog",
                 level=logging.WARNING)
         return self._error_logger
@@ -166,12 +173,7 @@ class NodeChainParameterSpace(object):
                 pySPACE.run_operation(backend, operation)
 
     def __eq__(self, other):
-        if hasattr(other, "nodes"):
-            for node in self.nodes:
-                if node not in other.nodes:
-                    return False
-            return True
-        return False
+        return hash(self) == hash(other)
 
     def __hash__(self):
         # Hash all nodes and concat them to a string
@@ -182,14 +184,10 @@ class NodeChainParameterSpace(object):
         return hash(s)
 
     def __repr__(self):
-        r = "["
-        r += ", ".join([repr(node) for node in self._nodes])
-        r += "]"
-        r += "@{input!s}".format(input=self._input_path)
-        return r
+        return "{cls!s}<{hash!s:>20s}>".format(cls=self.__class__.__name__, hash=hash(self))
 
     def __str__(self):
-        return "NodeChainParameterSpace<{hash!s:>20s}>".format(hash=hash(self))
+        return self.name
 
     def __getstate__(self):
         new_dict = copy.copy(self.__dict__)

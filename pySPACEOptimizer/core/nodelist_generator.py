@@ -88,24 +88,29 @@ class NodeListGenerator(object):
                                 # All required types and nodes are in the node_list
                                 # it might work.. yield it
                                 result = list(pipeline_array[:index + 2])
+                                # yield as name a string containing all optional nodes
+                                name = ",".join(set(pipeline_array[:index]).difference(self._required_nodes))
+                                if not name:
+                                    # All nodes in this pipeline are required, yield "forced pipeline"
+                                    name = "forced pipeline"
                                 self._logger.debug("\t" * index + "Valid node_list found: '%s'", result)
-                                yield result
+                                yield name, result
                             else:
                                 self._logger.debug("\t" * index + "Not all types required types contained: %s",
                                                    pipeline_types[:index + 2])
                         # Try to extend the node list
                         self._logger.debug("\t" * index + "Using '%s' as new input type", node_output)
-                        for node_list in self._make_node_list(pipeline_array, node_output, pipeline_types, index + 1):
-                            yield node_list
+                        for name, node_list in self._make_node_list(pipeline_array, node_output, pipeline_types, index + 1):
+                            yield name, node_list
                     else:
                         self._logger.debug("\t" * index +
                                            "Skipping node '%s' because node  get_output_type returned None" % node)
 
     def __iter__(self):
         # Generate all node lists
-        for node_list in self._make_node_list(numpy.chararray(self._max_length, itemsize=255),
-                                              self._input_type,
-                                              numpy.chararray(self._max_length, itemsize=255),
-                                              index=0):
-            yield node_list
+        for name, node_list in self._make_node_list(numpy.chararray(self._max_length, itemsize=255),
+                                                    self._input_type,
+                                                    numpy.chararray(self._max_length, itemsize=255),
+                                                    index=0):
+            yield name, node_list
         raise StopIteration()
