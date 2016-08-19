@@ -5,6 +5,7 @@ import sys
 import logging
 import logging.config
 import yaml
+import pprint
 from argparse import ArgumentParser, FileType
 
 import pySPACE
@@ -87,7 +88,10 @@ def main(args=None):
                 raise Exception("Optimizer %s not found!" % task["optimizer"])
             best_result = optimizer.do_optimization()
             logger.info("Done!")
-            logger.info("Best result found: %s", best_result)
+            logger.info("Best result found:")
+	    logger.info("\tLoss: %.3f" % best_result[0])
+	    logger.info("\tPipeline: %s" % best_result[1])
+	    logger.info("\tParameter: %s" % pprint.pformat(best_result[2]))
         except Exception:
             logger.exception("Error!")
         finally:
