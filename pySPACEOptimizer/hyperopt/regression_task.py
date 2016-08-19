@@ -8,8 +8,9 @@ def is_regression_task_node(node_name):
 
 
 class RegressionTask(Task):
-    def __init__(self, name, input_path, evaluations_per_pass, **kwargs):
-        super(RegressionTask, self).__init__(name, input_path, evaluations_per_pass, **kwargs)
+    def __init__(self, name, input_path, evaluations_per_pass, metric, **kwargs):
+        super(RegressionTask, self).__init__(name=name, input_path=input_path,
+                                             evaluations_per_pass=evaluations_per_pass, metric=metric, **kwargs)
 
     @property
     def required_node_types(self):

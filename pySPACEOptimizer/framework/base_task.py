@@ -38,8 +38,8 @@ def is_sink_node(node_name):
 
 class Task(dict):
 
-    def __init__(self, name, input_path, evaluations_per_pass, optimizer="PySPACEOptimizer",
-                 max_pipeline_length=3, max_eval_time=0, passes=1, source_node=None,
+    def __init__(self, name, input_path, evaluations_per_pass, metric, optimizer="PySPACEOptimizer",
+                 max_pipeline_length=3, max_eval_time=0, passes=1, source_node=None, is_performance_metric=False,
                  sink_node="PerformanceSinkNode", whitelist=None, blacklist=None, forced_nodes=None, node_weights=None,
                  parameter_ranges=None, window_size=None, max_loss=float("inf"), check_after=100,
                  max_parallel_pipelines=None, **kwargs):
@@ -90,7 +90,9 @@ class Task(dict):
             "result_dir": os.path.join(pySPACE.configuration.get("storage", os.getcwd()), "operation_results", name),
             "max_loss": max_loss,
             "check_after": check_after,
-            "max_parallel_pipelines": max_parallel_pipelines
+            "max_parallel_pipelines": max_parallel_pipelines,
+            "metric": metric,
+            "is_performance_metric": is_performance_metric,
         })
         super(Task, self).update(kwargs)
 
@@ -243,7 +245,10 @@ class Task(dict):
 
     def default_parameters(self, node):
         # :type node: NodeParameterSpace
-        return self["parameter_ranges"].get(node.name, {})
+        result = self["parameter_ranges"].get(node.name, {})
+        if "metric" in node.parameters:
+            result["metric"] = [self["metric"]]
+        return result
 
     @property
     def base_result_dir(self):
