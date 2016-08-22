@@ -24,11 +24,15 @@ from pySPACEOptimizer.core import NodeListGenerator, NodeChainParameterSpace
 
 
 class NoValidExperiment(Exception):
-    def __init__(self, experiment):
+    def __init__(self, experiment, exception):
         self.__experiment = experiment
+        self.__exception = exception
 
     def __str__(self):
-        return u"'{experiment!s}' is not a valid experiment".format(experiment=self.__experiment)
+        return u"'{experiment!s}' is not a valid experiment:{newline!s}{exception!s}".format(
+            experiment=self.__experiment,
+            newline=os.linesep,
+            exception=self.__exception)
 
 
 class PipelineList(QtGui.QListWidget):
@@ -334,8 +338,8 @@ class PerformanceAnalysisWidget(QtGui.QWidget):
             try:
                 with open(task, "rb") as task_file:
                     self.__task = task_from_yaml(task_file)
-            except Exception:
-                raise NoValidExperiment(experiment=task)
+            except Exception, e:
+                raise NoValidExperiment(experiment=task, exception=e)
 
             for name, node_chain in NodeListGenerator(self.__task):
                 pipeline = NodeChainParameterSpace(name=name, configuration=self.__task,
