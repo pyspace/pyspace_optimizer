@@ -28,7 +28,7 @@ setup(
             "pySPACEOptimizer = pySPACEOptimizer.core.__main__:main"
         ],
         "gui_scripts": [
-            "optimizerPerformanceAnalysis = pySPACEOptimizer.hyperopt.tools.performance_analysis"
+            "optimizerPerformanceAnalysis = pySPACEOptimizer.hyperopt.tools.performance_analysis:main"
         ],
         OPTIMIZER_ENTRY_POINT: [
             "HyperoptOptimizer = pySPACEOptimizer.hyperopt.optimizer:HyperoptOptimizer",

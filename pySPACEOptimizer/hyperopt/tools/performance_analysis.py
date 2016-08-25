@@ -444,13 +444,20 @@ def create_parser():
     return arg_parser
 
 
-if __name__ == "__main__":
-    import sys
+def main(args=None):
+    if args is None:
+        import sys
+        args = sys.argv[1:]
     parser = create_parser()
-    arguments, unknown_args = parser.parse_known_args(sys.argv[1:])
+    arguments, unknown_args = parser.parse_known_args(args)
     if arguments.config:
         pySPACE.load_configuration(conf_file_name=arguments.config)
     app = QtGui.QApplication(unknown_args)
     main = PerformanceAnalysisMainWindow(task=arguments.task)
     main.show()
     sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
+
